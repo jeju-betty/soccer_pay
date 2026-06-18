@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>트래블 페이 - 스마트 지출별 정산</title>
     <!-- Tailwind CSS 및 FontAwesome 아이콘 적용 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,67 +12,76 @@
         body { 
             font-family: 'Pretendard', sans-serif; 
             background-color: #f8fafc; 
+            -webkit-text-size-adjust: none; /* iOS 폰트 크기 자동 조절 방지 */
         }
+        /* 스크롤바 커스텀 및 모달 스크롤 자연스럽게 처리 */
         .no-scrollbar::-webkit-scrollbar { 
             display: none; 
         }
+        .smooth-scroll {
+            -webkit-overflow-scrolling: touch; /* 모바일 관성 스크롤 활성화 */
+        }
+        /* 모바일 터치 하이라이트 제거 */
+        input, button, select, label {
+            -webkit-tap-highlight-color: transparent;
+        }
     </style>
 </head>
-<body class="min-h-screen pb-16 text-slate-800">
+<body class="min-h-screen pb-12 text-slate-800 selection:bg-slate-200">
 
     <!-- 상단 헤더: 차분하고 고급스러운 미드나잇 슬레이트 테마 -->
-    <header class="bg-slate-900 text-white py-6 px-4 shadow-md mb-6">
-        <div class="max-w-5xl mx-auto flex justify-between items-center">
+    <header class="bg-slate-900 text-white py-4 md:py-6 px-4 shadow-sm mb-4 md:mb-6">
+        <div class="max-w-5xl mx-auto flex justify-between items-center gap-2">
             <div>
-                <h1 class="text-2xl font-bold tracking-tight flex items-center gap-2">
-                    <i class="fa-solid fa-wallet text-slate-400"></i> TRAVEL PAY <span class="text-xs bg-slate-800 text-slate-300 py-1 px-2.5 rounded-full font-normal">스마트 맞춤형 정산</span>
+                <h1 class="text-xl md:text-2xl font-bold tracking-tight flex items-center gap-1.5">
+                    <i class="fa-solid fa-wallet text-slate-400 text-lg"></i> TRAVEL PAY
                 </h1>
-                <p class="text-slate-400 text-xs mt-1">지출마다 참여 멤버를 선택해 맞춤형으로 1/N 정산을 계산합니다.</p>
+                <p class="text-slate-400 text-[10px] md:text-xs mt-0.5">지출마다 참여 멤버를 선택해 맞춤형으로 1/N 정산을 계산합니다.</p>
             </div>
-            <button onclick="confirmResetAll()" class="bg-slate-800 hover:bg-red-500 transition-colors px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1">
-                <i class="fa-solid fa-rotate-right"></i> 지출 내역 전체 삭제
+            <button onclick="confirmResetAll()" class="bg-slate-800 hover:bg-red-500 active:scale-95 transition-all px-2.5 py-1.5 rounded-lg text-[10px] md:text-xs font-semibold flex items-center gap-1 shrink-0">
+                <i class="fa-solid fa-rotate-right"></i> 전체 삭제
             </button>
         </div>
     </header>
 
     <!-- 메인 컨텐츠 영역 -->
-    <main class="max-w-5xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <main class="max-w-5xl mx-auto px-3 md:px-4 grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
         
         <!-- 왼쪽 사이드바: 입력 폼 (lg: 5칸) -->
-        <div class="lg:col-span-5 space-y-6">
+        <div class="lg:col-span-5 space-y-4 md:space-y-6">
             
             <!-- 멤버 정보 (유연한 인원 관리) -->
-            <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-md font-bold flex items-center gap-1.5 text-slate-700">
+            <section class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-100">
+                <div class="flex justify-between items-center mb-3 md:mb-4">
+                    <h2 class="text-sm md:text-base font-bold flex items-center gap-1.5 text-slate-700">
                         <i class="fa-solid fa-user-group text-slate-500"></i> 정산 멤버 관리
                     </h2>
                     <span id="memberCount" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-semibold">13명</span>
                 </div>
 
                 <!-- 멤버 입력창 -->
-                <div class="flex gap-2 mb-4">
-                    <input type="text" id="memberInput" placeholder="추가할 이름 입력" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm transition-all" onkeypress="if(event.keyCode==13) addMember()">
-                    <button onclick="addMember()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all shrink-0">
+                <div class="flex gap-2 mb-3">
+                    <input type="text" id="memberInput" placeholder="추가할 이름 입력" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm transition-all">
+                    <button onclick="addMember()" class="bg-slate-800 hover:bg-slate-900 active:scale-95 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all shrink-0">
                         추가
                     </button>
                 </div>
                 
-                <!-- 멤버 목록 칩 영역 (가나다 정렬) -->
-                <div id="memberList" class="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
+                <!-- 멤버 목록 칩 영역 -->
+                <div id="memberList" class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1 smooth-scroll">
                     <!-- 스크립트에서 자동 렌더링 -->
                 </div>
             </section>
 
-            <!-- 지출 입력 (결제자 및 참여자 동적 선택 포함) -->
-            <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                <h2 class="text-md font-bold flex items-center gap-1.5 text-slate-700 mb-4">
+            <!-- 지출 입력 -->
+            <section class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-100">
+                <h2 class="text-sm md:text-base font-bold flex items-center gap-1.5 text-slate-700 mb-3.5">
                     <i class="fa-solid fa-receipt text-slate-500"></i> 지출 상세 등록
                 </h2>
-                <div class="space-y-4">
+                <div class="space-y-3.5">
                     <div>
                         <label class="text-xs font-semibold text-slate-500 block mb-1">지출 내용</label>
-                        <input type="text" id="expenseTitle" placeholder="예: 가평 펜션 바비큐 고기 구매" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm transition-all">
+                        <input type="text" id="expenseTitle" placeholder="예: 13일 점심" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm transition-all">
                     </div>
                     <div>
                         <label class="text-xs font-semibold text-slate-500 block mb-1">지출 금액 (원)</label>
@@ -87,11 +96,11 @@
                         </select>
                     </div>
 
-                    <!-- 참여한 사람 선택 (동반인 설정 포함 체크박스 목록) -->
+                    <!-- 참여한 사람 선택 (체크박스 및 가중치 조절기) -->
                     <div>
                         <div class="flex justify-between items-center mb-1.5">
                             <label class="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                                누가 참여했나요? <span class="text-[10px] text-slate-400 font-normal">(동반인 수는 +, -로 지정)</span>
+                                누가 참여했나요? <span class="text-[10px] text-slate-400 font-normal hidden xs:inline">(동반인은 +, -로 지정)</span>
                             </label>
                             <div class="flex gap-2">
                                 <button onclick="toggleAllParticipants(true)" class="text-[10px] text-slate-600 hover:underline">전체 선택</button>
@@ -99,12 +108,12 @@
                                 <button onclick="toggleAllParticipants(false)" class="text-[10px] text-slate-500 hover:underline">전체 해제</button>
                             </div>
                         </div>
-                        <div id="participantsSelector" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-slate-100 rounded-lg bg-slate-50/50">
+                        <div id="participantsSelector" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto p-2 border border-slate-100 rounded-lg bg-slate-50/50 smooth-scroll">
                             <!-- 동적으로 체크박스 및 포션 조절기 생성 -->
                         </div>
                     </div>
 
-                    <button onclick="addExpense()" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm">
+                    <button onclick="addExpense()" class="w-full bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm">
                         지출 내역 기록하기
                     </button>
                 </div>
@@ -112,25 +121,25 @@
         </div>
 
         <!-- 오른쪽 대시보드 영역 -->
-        <div class="lg:col-span-7 space-y-6">
+        <div class="lg:col-span-7 space-y-4 md:space-y-6">
             
-            <!-- 누적 총 지출 카드 (차분하고 정돈된 그라파이트 딥그레이 슬레이트 그라데이션) -->
-            <section class="bg-gradient-to-br from-slate-800 to-slate-900 text-white p-6 rounded-3xl shadow-md relative overflow-hidden">
-                <div class="absolute right-4 top-4 text-9xl text-slate-700/15 pointer-events-none">
+            <!-- 누적 총 지출 카드 (그라파이트 딥그레이 슬레이트 그라데이션) -->
+            <section class="bg-gradient-to-br from-slate-800 to-slate-900 text-white p-5 md:p-6 rounded-3xl shadow-md relative overflow-hidden">
+                <div class="absolute right-4 top-4 text-8xl text-slate-700/15 pointer-events-none">
                     <i class="fa-solid fa-calculator"></i>
                 </div>
-                <p class="text-slate-300 text-sm font-medium">우리 멤버들의 누적 총 지출액</p>
-                <h3 class="text-3xl md:text-4xl font-extrabold mt-1 mb-4 tracking-tight" id="totalSpentAmount">0 원</h3>
+                <p class="text-slate-300 text-xs md:text-sm font-medium">우리 멤버들의 누적 총 지출액</p>
+                <h3 class="text-2xl md:text-3xl lg:text-4xl font-extrabold mt-1 mb-4 tracking-tight" id="totalSpentAmount">0 원</h3>
                 
-                <div class="flex flex-wrap gap-2 justify-between items-center">
-                    <p class="text-xs text-slate-400" id="statSummaryText">등록된 정산 정보가 없습니다.</p>
-                    <div class="flex gap-2">
+                <div class="flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
+                    <p class="text-[11px] text-slate-400" id="statSummaryText">등록된 정산 정보가 없습니다.</p>
+                    <div class="flex gap-2 w-full sm:w-auto">
                         <!-- 중간 정산 버튼 -->
-                        <button onclick="openIntermediateSettlement()" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-md transition-all flex items-center gap-1">
+                        <button onclick="openIntermediateSettlement()" class="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-[11px] font-bold px-3 py-2 rounded-lg shadow-md transition-all flex items-center justify-center gap-1">
                             <i class="fa-solid fa-file-invoice-dollar"></i> 중간 정산 및 청구
                         </button>
                         <!-- 최종 마감 버튼: 플랫한 에메랄드 단색 적용 -->
-                        <button onclick="openFinalArchivePrompt()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
+                        <button onclick="openFinalArchivePrompt()" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-semibold px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
                             <i class="fa-solid fa-box-archive"></i> 최종 정산 마감
                         </button>
                     </div>
@@ -139,36 +148,36 @@
 
             <!-- 1. 누적 지출 상세 리스트 -->
             <section class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div class="px-5 py-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                    <h2 class="font-bold text-slate-700 text-sm flex items-center gap-1.5">
-                        <i class="fa-solid fa-list-ul text-slate-500"></i> 누적 지출 내역 <span class="text-xs text-slate-400 font-normal">(1/N 금액 상세 표시)</span>
+                <div class="px-4 py-3 md:px-5 md:py-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                    <h2 class="font-bold text-slate-700 text-xs md:text-sm flex items-center gap-1.5">
+                        <i class="fa-solid fa-list-ul text-slate-500"></i> 누적 지출 내역 <span class="text-[10px] text-slate-400 font-normal">(1/N 금액 상세 표시)</span>
                     </h2>
-                    <span class="text-[11px] text-slate-400 font-medium" id="lastUpdated">최근 업데이트 없음</span>
+                    <span class="text-[10px] text-slate-400 font-medium" id="lastUpdated">최근 업데이트 없음</span>
                 </div>
                 
-                <div id="expenseHistory" class="divide-y divide-slate-100 max-h-[350px] overflow-y-auto">
+                <div id="expenseHistory" class="divide-y divide-slate-100 max-h-[300px] md:max-h-[350px] overflow-y-auto smooth-scroll">
                     <!-- 지출 내역 동적 로드 -->
                 </div>
             </section>
 
             <!-- 2. 최적의 송금 가이드 (누가 누구에게 보내야 하나) -->
-            <section class="bg-slate-100/50 border border-slate-200/50 p-5 rounded-2xl">
+            <section class="bg-slate-100/50 border border-slate-200/50 p-4 md:p-5 rounded-2xl">
                 <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                        <i class="fa-solid fa-paper-plane text-slate-500"></i> 추천 송금 가이드 <span class="text-[10px] font-normal text-slate-500">(송금 후 완료를 체크해 주세요)</span>
+                    <h2 class="text-xs md:text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-paper-plane text-slate-500"></i> 추천 송금 가이드 <span class="text-[9px] md:text-[10px] font-normal text-slate-500">(완료 후 체크해주세요)</span>
                     </h2>
                 </div>
-                <div id="transferGuideList" class="space-y-2">
+                <div id="transferGuideList" class="space-y-2 max-h-[250px] overflow-y-auto smooth-scroll pr-1">
                     <!-- 동적 렌더링 -->
                 </div>
             </section>
         </div>
     </main>
 
-    <!-- 하단 보관소 영역 (아카이브 목록 - 따뜻한 파스텔 에메랄드/세이지 그린 톤 유지) -->
-    <section class="max-w-5xl mx-auto px-4 mt-12">
-        <div class="bg-emerald-50/50 text-slate-800 p-6 rounded-3xl shadow-sm border border-emerald-100/80">
-            <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-emerald-800">
+    <!-- 하단 보관소 영역 (아카이브 목록 - 따뜻한 파스텔 에메랄드/세이지 그린 톤) -->
+    <section class="max-w-5xl mx-auto px-3 md:px-4 mt-6 md:mt-8">
+        <div class="bg-emerald-50/50 text-slate-800 p-4 md:p-6 rounded-3xl shadow-sm border border-emerald-100/80">
+            <h2 class="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-emerald-800">
                 <i class="fa-solid fa-box-archive text-emerald-500"></i> 여행 정산 기록 보관소 (중간/최종 아카이브)
             </h2>
             <div id="archiveContainer" class="space-y-4">
@@ -179,29 +188,29 @@
 
     <!-- 중간 정산 공유 및 리셋을 위한 전용 모달 -->
     <div id="intermediateModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+        <div class="bg-white rounded-2xl p-4 md:p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto smooth-scroll">
             <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                    <i class="fa-solid fa-file-invoice-dollar text-amber-500"></i> 📋 중간 정산 청구서 생성됨
+                <h3 class="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-file-invoice-dollar text-amber-500"></i> 중간 정산 청구서 생성됨
                 </h3>
-                <button onclick="closeIntermediateModal()" class="text-slate-400 hover:text-slate-600 text-lg">
+                <button onclick="closeIntermediateModal()" class="text-slate-400 hover:text-slate-600 text-lg p-1">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
             
-            <p class="text-xs text-slate-500">
+            <p class="text-[11px] text-slate-500 leading-relaxed">
                 아래 텍스트를 복사하여 카카오톡 단체 톡방 등에 공유한 뒤, <strong>[중간 정산 완료 및 리셋]</strong> 버튼을 누르면 현재 내역은 보관소에 저장되고 지출 목록이 깨끗하게 초기화되어 다음 정산을 진행할 수 있습니다.
             </p>
 
             <!-- 청구서 텍스트 프리뷰 영역 -->
-            <textarea id="billingTextarea" readonly class="w-full h-64 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none resize-none no-scrollbar"></textarea>
+            <textarea id="billingTextarea" readonly class="w-full h-48 md:h-64 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none resize-none no-scrollbar"></textarea>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <button onclick="copyBillingText()" class="bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3 pt-1">
+                <button onclick="copyBillingText()" class="bg-amber-500 hover:bg-amber-600 active:scale-95 text-white py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
                     <i class="fa-solid fa-copy"></i> 청구서 클립보드 복사
                 </button>
-                <button onclick="executeIntermediateReset()" class="bg-slate-800 hover:bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-rotate"></i> 중간 정산 완료 후 새 시작
+                <button onclick="executeIntermediateReset()" class="bg-slate-800 hover:bg-slate-900 active:scale-95 text-white py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-rotate"></i> 정산 완료 후 새 시작
                 </button>
             </div>
         </div>
@@ -209,35 +218,35 @@
 
     <!-- 최종 아카이브 이름 입력을 위한 커스텀 모달 -->
     <div id="archivePromptModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+        <div class="bg-white rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4">
+            <h3 class="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
                 <i class="fa-solid fa-box-archive text-emerald-500"></i> 최종 정산 마감 및 보관
             </h3>
             <p class="text-xs text-slate-500">이번 여행의 이름을 입력해 주세요. 누적 지출와 송금 가이드 완료 정보가 아카이브 보관실로 이동합니다.</p>
             <input type="text" id="archiveTripNameInput" placeholder="예: 2026 제주도 우정여행" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 outline-none text-sm">
-            <div class="flex justify-end gap-3 pt-2">
-                <button onclick="closeFinalArchivePrompt()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors">취소</button>
-                <button onclick="executeFinalArchive()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-colors">마감 및 저장</button>
+            <div class="flex justify-end gap-2.5 pt-1">
+                <button onclick="closeFinalArchivePrompt()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-semibold rounded-lg transition-colors">취소</button>
+                <button onclick="executeFinalArchive()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-semibold rounded-lg transition-colors">마감 및 저장</button>
             </div>
         </div>
     </div>
 
     <!-- 커스텀 알림/컨펌 모달 (alert/confirm 대체) -->
     <div id="confirmModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-            <h3 class="text-lg font-bold text-slate-800 mb-2" id="modalTitle">확인</h3>
-            <p class="text-slate-600 text-sm mb-6" id="modalMessage">정말로 진행하시겠습니까?</p>
-            <div class="flex justify-end gap-3">
-                <button onclick="closeModal(false)" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition-colors">취소</button>
-                <button onclick="closeModal(true)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors" id="modalConfirmBtn">확인</button>
+        <div class="bg-white rounded-2xl p-5 max-w-sm w-full shadow-xl">
+            <h3 class="text-base font-bold text-slate-800 mb-2" id="modalTitle">확인</h3>
+            <p class="text-slate-600 text-xs md:text-sm mb-5 leading-relaxed" id="modalMessage">정말로 진행하시겠습니까?</p>
+            <div class="flex justify-end gap-2.5">
+                <button onclick="closeModal(false)" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-semibold rounded-lg transition-colors">취소</button>
+                <button onclick="closeModal(true)" class="px-4 py-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-semibold rounded-lg transition-colors" id="modalConfirmBtn">확인</button>
             </div>
         </div>
     </div>
 
     <!-- 인앱 얼럿 메시지 UI (토스트) -->
-    <div id="toastAlert" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50 text-sm">
-        <i class="fa-solid fa-circle-exclamation text-amber-400"></i>
-        <span id="toastMessage">알림 내용</span>
+    <div id="toastAlert" class="fixed bottom-5 right-5 left-5 sm:left-auto sm:w-80 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50 text-xs">
+        <i class="fa-solid fa-circle-exclamation text-amber-400 shrink-0"></i>
+        <span id="toastMessage" class="truncate">알림 내용</span>
     </div>
 
     <script>
@@ -257,18 +266,17 @@
             archives: [] 
         };
 
-        // 로컬 스토리지 데이터 불러오기 & 버전별 역호환성 마이그레이션 적용
+        // 로컬 스토리지 데이터 불러오기 및 하위 호환 마이그레이션
         function loadData() {
             let savedData = localStorage.getItem(STORAGE_KEY);
             
-            // v11 데이터가 없는 경우, 유저가 가지고 있던 기존 스토리지(v10, v9, 구버전)를 탐색해 자동 복구
+            // 이전 버전의 데이터가 존재하고 새 버전 데이터가 없는 경우 복사 마이그레이션 수행
             if (!savedData) {
                 const legacyKeys = ['travelPayState_v10', 'travelPayState_v9', 'travelPayState'];
                 for (const oldKey of legacyKeys) {
                     const legacyData = localStorage.getItem(oldKey);
                     if (legacyData) {
                         savedData = legacyData;
-                        // 새 규격 키에 복사 저장하여 이후부턴 안정적으로 구동되게 보정
                         localStorage.setItem(STORAGE_KEY, legacyData);
                         break;
                     }
@@ -294,7 +302,7 @@
                 state.archives = [];
             }
 
-            // [정규화 필터] 참여자 필드가 단순 스트링 배열일 경우 객체 배열({name, count}) 구조로 통일해 렌더링 폭파 방지
+            // 참여자 필드가 단순 스트링 배열일 경우 구조 정규화 변환
             state.expenses.forEach(exp => {
                 if (exp.participants && exp.participants.length > 0) {
                     exp.participants = exp.participants.map(p => {
@@ -331,18 +339,18 @@
                 }
             });
 
-            // 화면 그리기
-            render(true); // 첫 로드 시에는 '체크 해제' 기본값이 반영되도록 true 전달
+            // 화면 그리기 (초기에는 체크 미해제 처리)
+            render(true); 
         }
 
-        // 로컬 스토리지에 안정적으로 동기화 저장
+        // 로컬 스토리지에 데이터 영구 저장
         function saveData() {
             state.members.sort((a, b) => a.localeCompare(b, 'ko'));
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            render(false); // 지출 입력 과정에서는 직전 체크 상태 보존을 위해 false 전달
+            render(false); // 체크 상태 유지를 위해 false 전달
         }
 
-        // 전체 참여자 선택/해제 및 그에 따른 포션 컨트롤러 숨김/노출 토글
+        // 전체 참여자 체크 선택/해제 및 그에 따른 컨트롤러 조절기 노출 토글
         function toggleAllParticipants(check) {
             const checkboxes = document.querySelectorAll('.participant-checkbox');
             checkboxes.forEach(cb => {
@@ -365,7 +373,7 @@
             }
         }
 
-        // 동반인 수/배수 수치 조절기 (+/- 터치 대응 스크립트)
+        // 동반인 수/배수 가중치 조절기 (+/- 터치 대응 스크립트)
         function adjustPortion(button, change) {
             const controls = button.closest('.portion-controls');
             const input = controls.querySelector('.participant-count');
@@ -475,7 +483,7 @@
             titleInput.value = '';
             amountInput.value = '';
             
-            // 지출 등록 완료 후에도 선택했던 체크박스/동반인 인원수가 초기화되지 않고 유지됩니다.
+            // 지출 등록 후에도 선택했던 체크박스 및 인원수가 지워지지 않고 완벽하게 동적 유지됩니다.
             saveData();
         }
 
@@ -485,7 +493,7 @@
             saveData();
         }
 
-        // 모달을 통한 전체 지출 내역 초기화 처리
+        // 전체 지출 내역 초기화 처리
         let pendingAction = null;
         function confirmResetAll() {
             showModal(
@@ -499,7 +507,7 @@
             );
         }
 
-        // 특정 송금 완료 체크 상태 토글 기능 (실시간 활성 정산용)
+        // 특정 송금 완료 체크 상태 토글 기능
         function toggleTransferStatus(key) {
             if (state.completedTransfers[key]) {
                 delete state.completedTransfers[key];
@@ -525,7 +533,7 @@
             }
         }
 
-        // 중간 정산 모달 열기 및 청구서 텍스트 포맷 빌드 (상세 매칭 내역은 제거된 가독성 우선 버전)
+        // 중간 정산 모달 열기 및 청구서 텍스트 포맷 빌드
         function openIntermediateSettlement() {
             if (state.expenses.length === 0) {
                 showToastAlert('중간 정산할 지출 내역이 없습니다.');
@@ -578,7 +586,7 @@
             modal.classList.remove('flex');
         }
 
-        // 청구서 텍스트 복사 (클립보드 API 폴백 지원)
+        // 청구서 텍스트 복사
         function copyBillingText() {
             const textarea = document.getElementById('billingTextarea');
             textarea.select();
@@ -587,7 +595,7 @@
             try {
                 const successful = document.execCommand('copy');
                 if (successful) {
-                    showToastAlert('청구서 텍스트가 클립보드에 복사되었습니다! 단톡방에 공유하세요.');
+                    showToastAlert('청구서가 클립보드에 복사되었습니다! 카톡방에 공유하세요.');
                 } else {
                     showToastAlert('복사에 실패했습니다. 직접 선택하여 복사해 주세요.');
                 }
@@ -619,7 +627,7 @@
             
             saveData();
             closeIntermediateModal();
-            showToastAlert('중간 정산 내역이 보관실에 저장되었으며, 새로운 정산판이 생성되었습니다!');
+            showToastAlert('중간 정산 내역이 보관실에 저장되고 새 정산판이 생성되었습니다!');
         }
 
         // 최종 아카이브 이름 입력을 위한 커스텀 모달 노출
@@ -687,7 +695,6 @@
         function getCalculatedTransfers() {
             const gross = {}; 
             
-            // 모든 멤버 쌍에 대해 초기 0원 설정
             state.members.forEach(m1 => {
                 gross[m1] = {};
                 state.members.forEach(m2 => {
@@ -710,7 +717,7 @@
                         let portionIndex = 0;
                         participants.forEach(p => {
                             let share = splitAmount * p.count;
-                            // 짜투리 1원 처리 배정
+                            // 짜투리 1원 소수점 처리 배정
                             for (let k = 0; k < p.count; k++) {
                                 if (portionIndex < remainder) {
                                     share += 1;
@@ -759,10 +766,10 @@
                 memberListEl.innerHTML = '<span class="text-slate-400 text-xs w-full text-center py-2">등록된 인원이 없습니다. 멤버를 추가해보세요!</span>';
             } else {
                 memberListEl.innerHTML = state.members.map((m, i) => `
-                    <div class="bg-slate-100 border border-slate-200 pl-3.5 pr-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-sm">
+                    <div class="bg-slate-100 border border-slate-200 pl-3 pr-1.5 py-0.5 rounded-full text-[11px] font-semibold flex items-center gap-1 shadow-sm shrink-0">
                         <span class="text-slate-500 font-bold">${i + 1}.</span>
-                        <span class="text-slate-700">${m}</span>
-                        <button onclick="removeMember('${m}')" class="text-slate-400 hover:text-rose-500 transition-colors ml-1">
+                        <span class="text-slate-700 truncate max-w-[60px]">${m}</span>
+                        <button onclick="removeMember('${m}')" class="text-slate-400 hover:text-rose-500 transition-colors ml-0.5 p-0.5">
                             <i class="fa-solid fa-circle-xmark"></i>
                         </button>
                     </div>
@@ -776,7 +783,6 @@
                 <option value="${m}">${m}</option>
             `).join('');
 
-            // 이전 결제자 세팅값이 유지되지 않거나 없는 경우 '오서준'이 우선되도록 세팅
             if (previousPayer && state.members.includes(previousPayer)) {
                 payerSelect.value = previousPayer;
             } else if (state.members.includes("오서준")) {
@@ -785,12 +791,11 @@
                 payerSelect.value = state.members[0];
             }
 
-            // 3. 지출 폼 내의 "참여자" 체크박스 및 포션 조절기 영역 업데이트 (기본 세팅은 빈칸/해제 상태)
+            // 3. 지출 폼 내의 "참여자" 체크박스 및 포션 조절기 영역 업데이트 (모바일 최적화 다열 레이아웃)
             const pSelector = document.getElementById('participantsSelector');
             const checkedStates = {};
             const countStates = {};
             
-            // 실시간 상태 수집 (resetSelection이 거짓일 때에만 기존의 DOM 상태 보존 실행)
             if (!resetSelection) {
                 document.querySelectorAll('.participant-row').forEach(row => {
                     const cb = row.querySelector('.participant-checkbox');
@@ -809,15 +814,15 @@
                 const countVal = countStates[m] !== undefined ? countStates[m] : 1;
                 
                 return `
-                    <div class="participant-row flex items-center justify-between px-2.5 py-1.5 bg-white rounded border border-slate-100 hover:bg-slate-100/50 transition-colors text-xs">
-                        <label class="flex items-center gap-2 cursor-pointer flex-1 min-w-0 py-1">
-                            <input type="checkbox" value="${m}" class="participant-checkbox rounded text-slate-600 focus:ring-slate-500" ${isChecked ? 'checked' : ''} onchange="togglePortionControls(this)">
-                            <span class="font-medium text-slate-700 truncate">${m}</span>
+                    <div class="participant-row flex items-center justify-between px-2.5 py-1.5 bg-white rounded-xl border border-slate-100 hover:bg-slate-100/50 transition-colors text-xs">
+                        <label class="flex items-center gap-2 cursor-pointer flex-1 min-w-0 py-1 select-none">
+                            <input type="checkbox" value="${m}" class="participant-checkbox rounded text-slate-600 focus:ring-slate-500 w-4 h-4" ${isChecked ? 'checked' : ''} onchange="togglePortionControls(this)">
+                            <span class="font-semibold text-slate-700 truncate">${m}</span>
                         </label>
-                        <div class="portion-controls items-center gap-1.5 ${isChecked ? 'flex' : 'hidden'}">
-                            <button type="button" onclick="adjustPortion(this, -1)" class="w-6 h-6 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded flex items-center justify-center font-bold text-slate-600 transition-colors">-</button>
-                            <input type="number" class="participant-count w-6 text-center bg-transparent font-bold text-slate-800 pointer-events-none" value="${countVal}" min="1" max="20">
-                            <button type="button" onclick="adjustPortion(this, 1)" class="w-6 h-6 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded flex items-center justify-center font-bold text-slate-600 transition-colors">+</button>
+                        <div class="portion-controls items-center gap-1.5 ${isChecked ? 'flex' : 'hidden'} shrink-0">
+                            <button type="button" onclick="adjustPortion(this, -1)" class="w-7 h-7 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-lg flex items-center justify-center font-bold text-slate-600 transition-colors text-sm">-</button>
+                            <input type="number" class="participant-count w-5 text-center bg-transparent font-bold text-slate-800 pointer-events-none text-xs" value="${countVal}" min="1" max="20">
+                            <button type="button" onclick="adjustPortion(this, 1)" class="w-7 h-7 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-lg flex items-center justify-center font-bold text-slate-600 transition-colors text-sm">+</button>
                         </div>
                     </div>
                 `;
@@ -839,29 +844,28 @@
                     const participantLabels = e.participants.map(p => p.count > 1 ? `${p.name}(${p.count}인)` : p.name).join(', ');
 
                     return `
-                        <div class="px-5 py-4 flex flex-col hover:bg-slate-50/80 transition-colors">
+                        <div class="px-4 py-3.5 md:px-5 flex flex-col hover:bg-slate-50/80 transition-colors">
                             <div class="flex justify-between items-start">
-                                <div class="space-y-1.5 flex-1 min-w-0 pr-4">
+                                <div class="space-y-1.5 flex-1 min-w-0 pr-3">
                                     <div class="flex flex-wrap items-center gap-1.5">
-                                        <span class="font-bold text-slate-800 text-sm truncate">${e.title}</span>
-                                        <!-- 파스텔 톤 1/N 배지 -->
-                                        <span class="bg-sky-50 text-sky-700 border border-sky-100 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                        <span class="font-bold text-slate-800 text-xs md:text-sm truncate max-w-[150px] sm:max-w-xs">${e.title}</span>
+                                        <span class="bg-sky-50 text-sky-700 border border-sky-100 text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0">
                                             1인당 ${individualShare.toLocaleString()}원
                                         </span>
                                     </div>
-                                    <p class="text-[11px] text-slate-500 font-medium">
+                                    <p class="text-[10px] md:text-[11px] text-slate-500 font-medium break-all leading-normal">
                                         참여 (${totalPortions}인분): <span class="text-slate-700 font-semibold">${participantLabels}</span>
                                     </p>
-                                    <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                                    <div class="flex items-center gap-2 text-[10px] md:text-[11px] text-slate-400">
                                         <span><i class="fa-regular fa-user"></i> 결제자: <strong class="text-slate-600">${e.payer}</strong></span>
                                         <span>•</span>
                                         <span><i class="fa-regular fa-clock"></i> ${e.time}</span>
                                     </div>
                                 </div>
-                                <div class="flex items-center gap-3 shrink-0 self-center">
-                                    <span class="font-extrabold text-slate-800 text-sm">${e.amount.toLocaleString()}원</span>
-                                    <button onclick="removeExpense(${e.id})" class="text-slate-300 hover:text-red-500 p-1 transition-colors">
-                                        <i class="fa-solid fa-trash-can"></i>
+                                <div class="flex items-center gap-2 shrink-0 self-center">
+                                    <span class="font-extrabold text-slate-800 text-xs md:text-sm shrink-0">${e.amount.toLocaleString()}원</span>
+                                    <button onclick="removeExpense(${e.id})" class="text-slate-300 hover:text-red-500 p-1.5 transition-colors active:scale-90">
+                                        <i class="fa-solid fa-trash-can text-sm"></i>
                                     </button>
                                 </div>
                             </div>
@@ -877,12 +881,12 @@
             document.getElementById('statSummaryText').innerText = `현재 누적 지출 횟수: ${state.expenses.length}회`;
             document.getElementById('memberCount').innerText = `${state.members.length}명`;
 
-            // 5. 송금 가이드 리스트 UI 구성 (동일인 포함)
+            // 5. 송금 가이드 리스트 UI 구성 (동일인 포함, 본인부담분 최하단 정렬 완비)
             const transfers = getCalculatedTransfers();
             const guideListEl = document.getElementById('transferGuideList');
             
             if (transfers.length === 0) {
-                guideListEl.innerHTML = `<p class="text-xs text-slate-500 py-1"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> 현재 지출 금액들이 고르게 정산되었습니다. 주고받을 송금 정보가 없습니다.</p>`;
+                guideListEl.innerHTML = `<p class="text-xs text-slate-500 py-1"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> 주고받을 송금 정보가 없습니다.</p>`;
             } else {
                 guideListEl.innerHTML = transfers.map(t => {
                     const uniqueTransferKey = `${t.from}-${t.to}-${t.amount}`;
@@ -890,17 +894,17 @@
                     const isSelf = (t.from === t.to);
 
                     return `
-                        <div class="flex items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/50 text-xs shadow-sm transition-all duration-300 ${isDone ? 'opacity-50 bg-slate-50/50' : ''}">
-                            <div class="flex items-center gap-2">
-                                <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500 line-through' : (isSelf ? 'bg-slate-100 text-slate-600' : 'bg-rose-50 text-rose-500')}">${t.from}</span>
-                                <span class="text-slate-400 font-medium"><i class="fa-solid fa-arrow-right"></i></span>
-                                <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500 line-through' : 'bg-emerald-50 text-emerald-600'}">${t.to}</span>
-                                ${isSelf ? `<span class="bg-slate-100 text-slate-700 border border-slate-200 text-[10px] scale-95 px-1.5 py-0.2 rounded font-normal">본인 부담분</span>` : ''}
+                        <div class="flex items-center justify-between bg-white px-3 py-2.5 rounded-xl border border-slate-200/50 text-[11px] md:text-xs shadow-sm transition-all duration-300 ${isDone ? 'opacity-50 bg-slate-50/50' : ''}">
+                            <div class="flex items-center gap-1.5 min-w-0 pr-2">
+                                <span class="font-bold px-1.5 py-0.5 rounded-md truncate max-w-[60px] ${isDone ? 'bg-slate-200 text-slate-500 line-through' : (isSelf ? 'bg-slate-100 text-slate-600' : 'bg-rose-50 text-rose-500')}">${t.from}</span>
+                                <span class="text-slate-400 text-[9px] shrink-0"><i class="fa-solid fa-arrow-right"></i></span>
+                                <span class="font-bold px-1.5 py-0.5 rounded-md truncate max-w-[60px] ${isDone ? 'bg-slate-200 text-slate-500 line-through' : 'bg-emerald-50 text-emerald-600'}">${t.to}</span>
+                                ${isSelf ? `<span class="bg-slate-100 text-slate-700 border border-slate-200 text-[9px] px-1 rounded font-normal shrink-0 scale-90">본인</span>` : ''}
                             </div>
-                            <div class="flex items-center gap-2.5">
-                                <span class="font-extrabold text-sm ${isDone ? 'text-slate-400 line-through' : 'text-slate-800'}">${t.amount.toLocaleString()}원</span>
-                                <button onclick="toggleTransferStatus('${uniqueTransferKey}')" class="px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all ${isDone ? 'bg-slate-200 text-slate-600 hover:bg-slate-300 hover:text-slate-800' : 'bg-slate-800 text-white hover:bg-emerald-500 hover:shadow-sm'}">
-                                    ${isDone ? '<i class="fa-solid fa-check"></i> 완료됨' : (isSelf ? '확인 완료' : '송금 완료')}
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span class="font-extrabold text-xs md:text-sm ${isDone ? 'text-slate-400 line-through' : 'text-slate-800'}">${t.amount.toLocaleString()}원</span>
+                                <button onclick="toggleTransferStatus('${uniqueTransferKey}')" class="px-2 py-1 rounded-md text-[10px] font-bold transition-all shrink-0 ${isDone ? 'bg-slate-200 text-slate-600' : 'bg-slate-800 text-white active:bg-emerald-500'}">
+                                    ${isDone ? '<i class="fa-solid fa-check"></i>' : (isSelf ? '확인' : '완료')}
                                 </button>
                             </div>
                         </div>
@@ -912,15 +916,14 @@
             const archiveContainer = document.getElementById('archiveContainer');
             if (state.archives.length === 0) {
                 archiveContainer.innerHTML = `
-                    <div class="p-8 text-center text-slate-400 border border-dashed border-emerald-200 rounded-2xl bg-white/40">
-                        <i class="fa-solid fa-folder-closed text-3xl mb-2 text-emerald-300 block"></i>
-                        아직 보관된 과거 정산 히스토리가 없습니다.
+                    <div class="p-6 text-center text-slate-400 border border-dashed border-emerald-200 rounded-2xl bg-white/40">
+                        <i class="fa-solid fa-folder-closed text-2xl mb-1.5 text-emerald-300 block"></i>
+                        보관된 과거 정산 히스토리가 없습니다.
                     </div>`;
             } else {
                 archiveContainer.innerHTML = state.archives.map((arch) => {
                     const totalTransferCount = arch.transfers.length;
                     
-                    // 완료된 송금 수 카운팅
                     let completedCount = 0;
                     arch.transfers.forEach(t => {
                         const key = `${t.from}-${t.to}-${t.amount}`;
@@ -931,10 +934,10 @@
 
                     const isIntermediate = arch.type === 'intermediate';
 
-                    // 각 아카이브 내부의 송금 상세 내역 템플릿
+                    // 보관소 전용 송금 내역 2단 그리드
                     let transfersDetailHtml = '';
                     if (arch.transfers.length === 0) {
-                        transfersDetailHtml = `<p class="text-slate-400 text-xs italic">주고받을 정산 내역이 없는 깔끔한 상태입니다.</p>`;
+                        transfersDetailHtml = `<p class="text-slate-400 text-xs italic p-2">주고받을 정산 내역이 없습니다.</p>`;
                     } else {
                         transfersDetailHtml = arch.transfers.map(t => {
                             const uniqueKey = `${t.from}-${t.to}-${t.amount}`;
@@ -942,29 +945,24 @@
                             const isSelf = (t.from === t.to);
                             
                             return `
-                                <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-xl border border-emerald-100 text-xs gap-3 shadow-sm hover:shadow-md transition-all">
-                                    <div class="flex flex-col gap-1.5 flex-1 min-w-0">
-                                        <!-- 송수신 단락 구분 -->
-                                        <div class="flex items-center gap-2 flex-wrap">
-                                            <span class="font-bold text-slate-700 text-xs bg-slate-100 px-2.5 py-1 rounded-md shrink-0 border border-slate-200/60">${t.from}</span>
-                                            <span class="text-slate-400 text-[10px]"><i class="fa-solid fa-arrow-right"></i></span>
-                                            <span class="font-bold text-slate-700 text-xs bg-slate-100 px-2.5 py-1 rounded-md shrink-0 border border-slate-200">${t.to}</span>
-                                            ${isSelf ? `<span class="bg-slate-100 text-slate-700 border border-slate-200 text-[9px] px-1.5 py-0.1 rounded font-normal shrink-0">본인</span>` : ''}
+                                <div class="flex flex-col bg-white p-3.5 rounded-xl border border-emerald-100 text-xs gap-2 shadow-sm">
+                                    <div class="flex justify-between items-start gap-1">
+                                        <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+                                            <span class="font-bold text-slate-700 text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60 truncate max-w-[60px]">${t.from}</span>
+                                            <span class="text-slate-400 text-[9px]"><i class="fa-solid fa-arrow-right"></i></span>
+                                            <span class="font-bold text-slate-700 text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60 truncate max-w-[60px]">${t.to}</span>
+                                            ${isSelf ? `<span class="bg-slate-100 text-slate-500 border border-slate-200 text-[8px] px-1 rounded shrink-0 scale-90">본인</span>` : ''}
                                         </div>
-                                        <!-- 금액 폰트 확대 (파스텔 테마) -->
-                                        <div class="mt-1">
-                                            <span class="text-slate-800 text-base font-extrabold tracking-tight">${t.amount.toLocaleString()} 원</span>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-2.5 self-end sm:self-center shrink-0">
-                                        ${isDone 
-                                            ? `<span class="text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-circle-check"></i> ${isSelf ? '확인 완료' : '송금 완료'}</span>`
-                                            : `<span class="text-amber-700 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-clock"></i> ${isSelf ? '미확인' : '미송금'}</span>`
-                                        }
-                                        <!-- 보관소 송금 완료상태 토글 -->
-                                        <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="text-[10px] bg-slate-50 hover:bg-slate-100 px-2.5 py-1 rounded text-slate-600 transition-all font-semibold border border-slate-200">
-                                            상태 변경
+                                        <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="text-[9px] bg-slate-50 hover:bg-slate-100 active:scale-95 px-1.5 py-0.5 rounded text-slate-500 transition-all font-semibold border border-slate-200 shrink-0">
+                                            변경
                                         </button>
+                                    </div>
+                                    <div class="flex justify-between items-center mt-0.5 gap-2">
+                                        <span class="text-slate-800 text-sm font-extrabold tracking-tight">${t.amount.toLocaleString()} 원</span>
+                                        ${isDone 
+                                            ? `<span class="text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0"><i class="fa-solid fa-circle-check"></i> 완료</span>`
+                                            : `<span class="text-amber-700 bg-amber-50 border border-amber-200/60 px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0"><i class="fa-solid fa-clock"></i> 대기</span>`
+                                        }
                                     </div>
                                 </div>
                             `;
@@ -972,28 +970,28 @@
                     }
 
                     return `
-                        <div class="bg-white border ${isIntermediate ? 'border-amber-200/80' : 'border-emerald-200/80'} p-5 rounded-2xl space-y-4 shadow-sm">
-                            <div class="flex justify-between items-start">
+                        <div class="bg-white border ${isIntermediate ? 'border-amber-200/80' : 'border-emerald-200/80'} p-4 md:p-5 rounded-2xl space-y-3.5 shadow-sm">
+                            <div class="flex justify-between items-start gap-2">
                                 <div>
-                                    <h3 class="text-md font-extrabold ${isIntermediate ? 'text-amber-800' : 'text-emerald-800'} flex items-center gap-2">
+                                    <h3 class="text-sm md:text-md font-extrabold ${isIntermediate ? 'text-amber-800' : 'text-emerald-800'} flex items-center gap-1.5 truncate max-w-[200px] sm:max-w-sm">
                                         <i class="fa-solid ${isIntermediate ? 'fa-file-invoice-dollar text-amber-500' : 'fa-map-location-dot text-emerald-500'}"></i> ${arch.title}
                                     </h3>
-                                    <p class="text-[11px] text-slate-500 mt-0.5">${arch.date} 정산 완료 • 누적 지출 <strong>${arch.expenses.length}건</strong></p>
+                                    <p class="text-[10px] text-slate-500 mt-0.5">${arch.date} 정산 완료 • 누적 지출 <strong>${arch.expenses.length}건</strong></p>
                                 </div>
-                                <div class="flex items-center gap-3">
-                                    <span class="text-xs ${isIntermediate ? 'bg-amber-50 text-amber-700 border border-amber-200/60' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'} px-3 py-1 rounded-full font-bold">
-                                        정산액: ${arch.totalSpent.toLocaleString()}원
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span class="text-[10px] md:text-xs ${isIntermediate ? 'bg-amber-50 text-amber-700 border border-amber-200/60' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'} px-2.5 py-0.5 rounded-full font-bold">
+                                        ${arch.totalSpent.toLocaleString()}원
                                     </span>
-                                    <button onclick="deleteArchive(${arch.id})" class="text-slate-400 hover:text-rose-500 transition-colors text-sm p-1">
+                                    <button onclick="deleteArchive(${arch.id})" class="text-slate-400 hover:text-rose-500 transition-colors p-1 active:scale-90">
                                         <i class="fa-solid fa-trash-can"></i>
                                     </button>
                                 </div>
                             </div>
 
                             <!-- 아카이브 송금 달성도 상태 바 -->
-                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
+                            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[11px]">
                                 <div class="flex justify-between items-center mb-1 text-slate-600 font-bold">
-                                    <span>송금 달성률 (${completedCount}/${totalTransferCount})</span>
+                                    <span>송금 완료율 (${completedCount}/${totalTransferCount})</span>
                                     <span>${totalTransferCount > 0 ? Math.round((completedCount / totalTransferCount) * 100) : 100}%</span>
                                 </div>
                                 <div class="w-full bg-slate-200/60 rounded-full h-1.5 overflow-hidden">
@@ -1001,12 +999,12 @@
                                 </div>
                             </div>
 
-                            <!-- 아카이브 상세 송금 현황 (가독성 향상을 위한 2단 그리드 배치) -->
-                            <div class="space-y-3 mt-4 pt-4 border-t border-slate-100">
-                                <p class="text-xs text-slate-600 font-semibold flex items-center gap-1.5">
-                                    <i class="fa-solid fa-list-check text-indigo-500"></i> 아카이브 정산 상세 내역 (금액 표시)
+                            <!-- 아카이브 상세 송금 현황 (모바일 가독성을 극대화한 넉넉한 2단 격리 그리드) -->
+                            <div class="space-y-2 pt-3 border-t border-slate-100">
+                                <p class="text-[11px] text-slate-600 font-semibold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-list-check text-slate-500"></i> 상세 내역 및 정산 현황
                                 </p>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-1.5">
                                     ${transfersDetailHtml}
                                 </div>
                             </div>
