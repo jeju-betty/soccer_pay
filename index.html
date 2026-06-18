@@ -40,16 +40,16 @@
                 </p>
             </div>
 
-            <!-- 정산 내용 입력 상자 (클릭 시 예시 문구 지워지는 편리한 인터랙션 적용) -->
+            <!-- 정산 내용 입력 상자 (대회 대신 여행 명칭으로 예시 변경) -->
             <div class="space-y-1.5 pt-1 text-left">
                 <label class="text-[11px] font-bold text-slate-500 flex items-center gap-1">
-                    <i class="fa-solid fa-pen-to-square"></i> 이번 정산 명칭 / 대회 제목
+                    <i class="fa-solid fa-pen-to-square"></i> 이번 여행 이름 / 정산 제목
                 </label>
                 <input type="text" id="initialTripTitle" 
-                       value="2026 제천 대회 (일정 입력)" 
-                       placeholder="예: 2026 제천 대회 (일정 입력)" 
-                       onfocus="if(this.value === '2026 제천 대회 (일정 입력)') { this.value = '2026 제천 대회 '; }" 
-                       onblur="if(this.value.trim() === '2026 제천 대회' || this.value.trim() === '') { this.value = '2026 제천 대회 (일정 입력)'; }"
+                       value="2026 제주도 여행 (일정 입력)" 
+                       placeholder="예: 2026 제주도 여행 (일정 입력)" 
+                       onfocus="if(this.value === '2026 제주도 여행 (일정 입력)') { this.value = '2026 제주도 여행 '; }" 
+                       onblur="if(this.value.trim() === '2026 제주도 여행' || this.value.trim() === '') { this.value = '2026 제주도 여행 (일정 입력)'; }"
                        class="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none text-sm text-center font-semibold focus:border-slate-400 focus:ring-1 focus:ring-slate-400 transition-all">
             </div>
 
@@ -287,7 +287,7 @@
                 <i class="fa-solid fa-box-archive text-emerald-500"></i> 최종 정산 마감 및 보관
             </h3>
             <p class="text-xs text-slate-500">이번 여행의 이름을 입력해 주세요. 누적 지출와 송금 가이드 완료 정보가 아카이브 보관실로 이동합니다.</p>
-            <input type="text" id="archiveTripNameInput" placeholder="예: 2026 제천 대회" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 outline-none text-sm">
+            <input type="text" id="archiveTripNameInput" placeholder="예: 2026 제주도 여행" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 outline-none text-sm">
             <div class="flex justify-end gap-2.5 pt-1">
                 <button onclick="closeFinalArchivePrompt()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-semibold rounded-lg transition-colors">취소</button>
                 <button onclick="executeFinalArchive()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-semibold rounded-lg transition-colors">마감 및 저장</button>
@@ -321,7 +321,7 @@
         ];
 
         window.state = {
-            tripTitle: "2026 제천 대회",
+            tripTitle: "2026 제주도 여행",
             members: [...DEFAULT_MEMBERS],
             expenses: [],
             completedTransfers: {},
@@ -344,7 +344,7 @@
                         console.error("로컬 백업 로드 실패:", e);
                     }
                 } else {
-                    const fallbackTitle = window.pendingTripTitle || '2026 제천 대회';
+                    const fallbackTitle = window.pendingTripTitle || '2026 제주도 여행';
                     window.state = {
                         tripTitle: fallbackTitle,
                         members: [...DEFAULT_MEMBERS],
@@ -377,8 +377,8 @@
             let tripTitle = titleInput ? titleInput.value.trim() : '';
 
             // 만약 기본값 상태 그대로 개설한다면, "(일정 입력)" 텍스트가 남지 않도록 보정
-            if (tripTitle === '2026 제천 대회 (일정 입력)') {
-                tripTitle = '2026 제천 대회';
+            if (tripTitle === '2026 제주도 여행 (일정 입력)') {
+                tripTitle = '2026 제주도 여행';
             }
 
             const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -388,7 +388,7 @@
             }
 
             // 해시 변경 시점에 동기화되도록 대기 변수에 정산명을 임시 세팅
-            window.pendingTripTitle = tripTitle || '2026 제천 대회';
+            window.pendingTripTitle = tripTitle || '2026 제주도 여행';
 
             window.location.hash = newCode;
             window.loadLocalBackup();
@@ -493,13 +493,13 @@
             unsubscribeDoc = onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    window.state.tripTitle = data.tripTitle || '2026 제천 대회';
+                    window.state.tripTitle = data.tripTitle || '2026 제주도 여행';
                     window.state.members = data.members || [...DEFAULT_MEMBERS];
                     window.state.expenses = data.expenses || [];
                     window.state.completedTransfers = data.completedTransfers || {};
                     window.state.archives = data.archives || [];
                 } else {
-                    const fallbackTitle = window.pendingTripTitle || '2026 제천 대회';
+                    const fallbackTitle = window.pendingTripTitle || '2026 제주도 여행';
                     window.state = {
                         tripTitle: fallbackTitle,
                         members: [...DEFAULT_MEMBERS],
@@ -540,11 +540,11 @@
         
         // 정산제목 수정용 모달/창 유틸리티
         window.editTripTitle = function() {
-            const currentTitle = window.state.tripTitle || '2026 제천 대회';
+            const currentTitle = window.state.tripTitle || '2026 제주도 여행';
             const newTitle = prompt('수정할 정산의 명칭이나 여행 제목을 입력하세요:', currentTitle);
             if (newTitle !== null) {
                 const trimmed = newTitle.trim();
-                window.state.tripTitle = trimmed || '2026 제천 대회';
+                window.state.tripTitle = trimmed || '2026 제주도 여행';
                 window.saveData();
                 showToastAlert('정산 명칭이 성공적으로 변경되었습니다.');
             }
@@ -766,7 +766,7 @@
                 return;
             }
 
-            const currentTitle = window.state.tripTitle || '2026 제천 대회';
+            const currentTitle = window.state.tripTitle || '2026 제주도 여행';
             const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
             const transfers = window.getCalculatedTransfers();
             const now = new Date();
@@ -831,7 +831,7 @@
         };
 
         window.executeIntermediateReset = function() {
-            const currentTitle = window.state.tripTitle || '2026 제천 대회';
+            const currentTitle = window.state.tripTitle || '2026 제주도 여행';
             const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
             const currentTransfers = window.getCalculatedTransfers();
             const now = new Date();
@@ -877,7 +877,7 @@
         window.executeFinalArchive = function() {
             const input = document.getElementById('archiveTripNameInput');
             const tripName = input.value.trim();
-            const finalName = tripName || window.state.tripTitle || '이름 없는 여행';
+            const finalName = tripName || window.state.tripTitle || '2026 제주도 여행';
             
             const currentTransfers = window.getCalculatedTransfers();
             const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
@@ -947,7 +947,7 @@
         // UI 실시간 동적 렌더러
         window.render = function(resetSelection = false) {
             // 상단 정산 이름 업데이트
-            const currentTitle = window.state.tripTitle || '2026 제천 대회';
+            const currentTitle = window.state.tripTitle || '2026 제주도 여행';
             document.getElementById('tripTitleDisplay').innerText = currentTitle;
             document.getElementById('spentCardTitle').innerText = currentTitle;
 
