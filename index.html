@@ -419,7 +419,8 @@
         async function connectCloud() {
             if (!fbConfig || !fbConfig.apiKey) {
                 console.log("Firebase 연결 열쇠가 비어있어 완벽한 로컬 오프라인 전용 모드로 작동합니다.");
-                return;
+  
+              return;
             }
 
             try {
@@ -1050,31 +1051,33 @@
                     if (arch.transfers.length === 0) {
                         transfersDetailHtml = `<p class="text-slate-400 text-xs italic">송금이 필요 없는 깔끔한 내역입니다.</p>`;
                     } else {
+                        // 일렬(세로 목록)로 깔끔하게 가독성 있게 정렬
                         transfersDetailHtml = arch.transfers.map(t => {
                             const uniqueKey = `${t.from}-${t.to}-${t.amount}`;
                             const isDone = arch.completedTransfers && arch.completedTransfers[uniqueKey];
                             const isSelf = (t.from === t.to);
                             
                             return `
-                                <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-xl border border-emerald-100 text-xs gap-3 shadow-sm hover:shadow-md transition-all">
-                                    <div class="flex flex-col gap-1.5 flex-1 min-w-0">
-                                        <div class="flex items-center gap-2 flex-wrap">
-                                            <span class="font-bold text-slate-700 text-xs bg-slate-100 px-2.5 py-1 rounded-md shrink-0 border border-slate-200/60">${t.from}</span>
-                                            <span class="text-slate-400 text-[10px]"><i class="fa-solid fa-arrow-right"></i></span>
-                                            <span class="font-bold text-indigo-700 text-xs bg-indigo-50 px-2.5 py-1 rounded-md shrink-0 border border-indigo-100/40">${t.to}</span>
-                                        </div>
-                                        <div class="mt-1">
-                                            <span class="text-indigo-600 text-base font-extrabold tracking-tight">${t.amount.toLocaleString()} 원</span>
-                                        </div>
+                                <div class="flex items-center justify-between bg-white px-3 py-2.5 rounded-xl border border-emerald-100 text-xs shadow-sm hover:shadow-md transition-all gap-2">
+                                    <!-- 왼쪽: 정산 주체 (보낼 사람 -> 받을 사람) -->
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="font-bold text-slate-700 text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[55px] sm:max-w-[70px]">${t.from}</span>
+                                        <span class="text-slate-300 text-[10px]"><i class="fa-solid fa-arrow-right"></i></span>
+                                        <span class="font-bold text-indigo-700 text-[11px] bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100/40 truncate max-w-[55px] sm:max-w-[70px]">${t.to}</span>
+                                        ${isSelf ? `<span class="text-slate-400 text-[9px] font-normal shrink-0">본인</span>` : ''}
                                     </div>
-                                    <div class="flex items-center gap-2.5 self-end sm:self-center shrink-0">
-                                        ${isDone 
-                                            ? `<span class="text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-circle-check"></i> 완료</span>`
-                                            : `<span class="text-amber-700 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-clock"></i> 대기</span>`
-                                        }
-                                        <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="px-3 py-1.5 rounded-lg text-[11px] md:text-xs font-bold transition-all bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 border border-slate-200 flex items-center gap-1.5 shrink-0">
-                                            <i class="fa-solid fa-arrows-rotate text-[10px] text-slate-500"></i> 변경
-                                        </button>
+                                    <!-- 오른쪽: 금액 정보 및 초미니 상태 변경 버튼 (가로 정렬) -->
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <span class="text-indigo-600 text-[13px] font-extrabold tracking-tight shrink-0">${t.amount.toLocaleString()} 원</span>
+                                        <div class="flex items-center gap-1">
+                                            ${isDone 
+                                                ? `<span class="text-emerald-700 bg-emerald-50 border border-emerald-150 px-1.5 py-0.5 rounded text-[10px] font-bold"><i class="fa-solid fa-circle-check"></i> 완료</span>`
+                                                : `<span class="text-amber-700 bg-amber-50 border border-amber-150 px-1.5 py-0.5 rounded text-[10px] font-bold"><i class="fa-solid fa-clock"></i> 대기</span>`
+                                            }
+                                            <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-semibold text-slate-600 border border-slate-200 flex items-center justify-center shrink-0" title="상태 변경">
+                                                <i class="fa-solid fa-arrows-rotate text-[9px]"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             `;
@@ -1114,7 +1117,8 @@
                                 <p class="text-[11px] text-slate-600 font-semibold flex items-center gap-1.5">
                                     <i class="fa-solid fa-list-check text-slate-500"></i> 상세 송금 현황
                                 </p>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-1.5">
+                                <!-- grid-cols-1로 변경하여 모바일에서도 꼬임 없이 1열(세로 일렬)로 깔끔하게 가독성 극대화 -->
+                                <div class="grid grid-cols-1 gap-2 mt-1.5">
                                     ${transfersDetailHtml}
                                 </div>
                             </div>
