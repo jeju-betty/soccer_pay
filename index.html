@@ -20,7 +20,7 @@
 </head>
 <body class="min-h-screen pb-16 text-slate-800">
 
-    <!-- 상단 헤더: 차분하고 고급스러운 미드나잇 슬레이트 테마로 전면 변경 -->
+    <!-- 상단 헤더: 차분하고 고급스러운 미드나잇 슬레이트 테마 -->
     <header class="bg-slate-900 text-white py-6 px-4 shadow-md mb-6">
         <div class="max-w-5xl mx-auto flex justify-between items-center">
             <div>
@@ -79,7 +79,7 @@
                         <input type="number" id="expenseAmount" placeholder="원 단위 숫자만 입력" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm transition-all">
                     </div>
                     
-                    <!-- 결제한 사람 선택 (기본값: 오서준) -->
+                    <!-- 결제한 사람 선택 -->
                     <div>
                         <label class="text-xs font-semibold text-slate-500 block mb-1">누가 결제했나요?</label>
                         <select id="expensePayer" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm bg-white transition-all">
@@ -123,13 +123,14 @@
                 <h3 class="text-3xl md:text-4xl font-extrabold mt-1 mb-4 tracking-tight" id="totalSpentAmount">0 원</h3>
                 
                 <div class="flex flex-wrap gap-2 justify-between items-center">
-                    <p class="text-xs text-slate-400 animate-pulse" id="statSummaryText">등록된 정산 정보가 없습니다.</p>
+                    <p class="text-xs text-slate-400" id="statSummaryText">등록된 정산 정보가 없습니다.</p>
                     <div class="flex gap-2">
                         <!-- 중간 정산 버튼 -->
                         <button onclick="openIntermediateSettlement()" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-md transition-all flex items-center gap-1">
                             <i class="fa-solid fa-file-invoice-dollar"></i> 중간 정산 및 청구
                         </button>
-                        <button onclick="openFinalArchivePrompt()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
+                        <!-- 최종 마감 버튼: 플랫한 에메랄드 단색 적용 -->
+                        <button onclick="openFinalArchivePrompt()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
                             <i class="fa-solid fa-box-archive"></i> 최종 정산 마감
                         </button>
                     </div>
@@ -246,26 +247,46 @@
             "오서준", "이강우", "이승준", "이주호", "이하율", "장우진", "지효준"
         ];
 
-        // 기본 데이터 상태 정의 (데이터 규격 불일치 예방을 위해 v10 버전 격리 사용)
+        // 새로운 고유 격리 스토리지 버전 키 (v11)
+        const STORAGE_KEY = 'travelPayState_v11';
+
         let state = {
             members: [...DEFAULT_MEMBERS],
             expenses: [],
-            completedTransfers: {}, // 송금완료 상태 보관 {"송금인-수취인-금액": true}
-            archives: [] // 아카이브 목록
+            completedTransfers: {}, 
+            archives: [] 
         };
 
-        // 로컬 스토리지 데이터 불러오기 및 과거 규격 하위 호환성 복원 처리
+        // 로컬 스토리지 데이터 불러오기 & 버전별 역호환성 마이그레이션 적용
         function loadData() {
-            const savedData = localStorage.getItem('travelPayState_v10');
+            let savedData = localStorage.getItem(STORAGE_KEY);
+            
+            // v11 데이터가 없는 경우, 유저가 가지고 있던 기존 스토리지(v10, v9, 구버전)를 탐색해 자동 복구
+            if (!savedData) {
+                const legacyKeys = ['travelPayState_v10', 'travelPayState_v9', 'travelPayState'];
+                for (const oldKey of legacyKeys) {
+                    const legacyData = localStorage.getItem(oldKey);
+                    if (legacyData) {
+                        savedData = legacyData;
+                        // 새 규격 키에 복사 저장하여 이후부턴 안정적으로 구동되게 보정
+                        localStorage.setItem(STORAGE_KEY, legacyData);
+                        break;
+                    }
+                }
+            }
+
             if (savedData) {
-                const parsed = JSON.parse(savedData);
-                state.members = parsed.members || [...DEFAULT_MEMBERS];
-                state.expenses = parsed.expenses || [];
-                state.completedTransfers = parsed.completedTransfers || {};
-                state.archives = parsed.archives || [];
-                
-                // 멤버 리스트 정렬 보장
-                state.members.sort((a, b) => a.localeCompare(b, 'ko'));
+                try {
+                    const parsed = JSON.parse(savedData);
+                    state.members = parsed.members || [...DEFAULT_MEMBERS];
+                    state.expenses = parsed.expenses || [];
+                    state.completedTransfers = parsed.completedTransfers || {};
+                    state.archives = parsed.archives || [];
+                    
+                    state.members.sort((a, b) => a.localeCompare(b, 'ko'));
+                } catch (e) {
+                    console.error("데이터 복구 중 오류 발생: ", e);
+                }
             } else {
                 state.members = [...DEFAULT_MEMBERS];
                 state.expenses = [];
@@ -273,15 +294,20 @@
                 state.archives = [];
             }
 
-            // 하위 호환성 마이그레이션 (참여자 문자열 배열을 객체 배열로 정규화)
+            // [정규화 필터] 참여자 필드가 단순 스트링 배열일 경우 객체 배열({name, count}) 구조로 통일해 렌더링 폭파 방지
             state.expenses.forEach(exp => {
                 if (exp.participants && exp.participants.length > 0) {
                     exp.participants = exp.participants.map(p => {
                         if (typeof p === 'string') {
                             return { name: p, count: 1 };
                         }
-                        return p;
+                        if (p && typeof p === 'object' && p.name) {
+                            return { name: p.name, count: typeof p.count === 'number' ? p.count : 1 };
+                        }
+                        return { name: String(p), count: 1 };
                     });
+                } else {
+                    exp.participants = [];
                 }
             });
 
@@ -292,22 +318,28 @@
                             exp.participants = exp.participants.map(p => {
                                 if (typeof p === 'string') {
                                     return { name: p, count: 1 };
-                                    }
-                                return p;
+                                }
+                                if (p && typeof p === 'object' && p.name) {
+                                    return { name: p.name, count: typeof p.count === 'number' ? p.count : 1 };
+                                }
+                                return { name: String(p), count: 1 };
                             });
+                        } else {
+                            exp.participants = [];
                         }
                     });
                 }
             });
 
-            render();
+            // 화면 그리기
+            render(true); // 첫 로드 시에는 '체크 해제' 기본값이 반영되도록 true 전달
         }
 
-        // 로컬 스토리지에 데이터 저장
+        // 로컬 스토리지에 안정적으로 동기화 저장
         function saveData() {
             state.members.sort((a, b) => a.localeCompare(b, 'ko'));
-            localStorage.setItem('travelPayState_v10', JSON.stringify(state));
-            render();
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            render(false); // 지출 입력 과정에서는 직전 체크 상태 보존을 위해 false 전달
         }
 
         // 전체 참여자 선택/해제 및 그에 따른 포션 컨트롤러 숨김/노출 토글
@@ -322,6 +354,7 @@
         // 개별 포션 컨트롤러 토글
         function togglePortionControls(checkbox) {
             const row = checkbox.closest('.participant-row');
+            if (!row) return;
             const controls = row.querySelector('.portion-controls');
             if (checkbox.checked) {
                 controls.classList.remove('hidden');
@@ -339,7 +372,7 @@
             let val = parseInt(input.value) || 1;
             val += change;
             if (val < 1) val = 1;
-            if (val > 20) val = 20; // 비정상적인 폭증 방지 제한치
+            if (val > 20) val = 20; 
             input.value = val;
         }
 
@@ -442,7 +475,7 @@
             titleInput.value = '';
             amountInput.value = '';
             
-            // 지출 등록 후에도 선택 체크박스와 설정해둔 인원수 상태가 초기화되지 않고 유지됩니다.
+            // 지출 등록 완료 후에도 선택했던 체크박스/동반인 인원수가 초기화되지 않고 유지됩니다.
             saveData();
         }
 
@@ -492,7 +525,7 @@
             }
         }
 
-        // 중간 정산 모달 열기 및 청구서 텍스트 포맷 빌드
+        // 중간 정산 모달 열기 및 청구서 텍스트 포맷 빌드 (상세 매칭 내역은 제거된 가독성 우선 버전)
         function openIntermediateSettlement() {
             if (state.expenses.length === 0) {
                 showToastAlert('중간 정산할 지출 내역이 없습니다.');
@@ -504,7 +537,7 @@
             const now = new Date();
             const dateString = `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-            // 카카오톡 공유 포맷 빌드 (1인당 비용 및 누적 부담 분석 포함)
+            // 카카오톡 공유 포맷 빌드 (1인당 비용 및 결제 명세)
             let billText = `[✈️ TRAVEL PAY - 중간 정산 청구서]\n`;
             billText += `일시: ${dateString}\n`;
             billText += `누적 총 지출: ${totalSpent.toLocaleString()}원\n`;
@@ -570,7 +603,6 @@
             const now = new Date();
             const dateString = `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()}`;
 
-            // 아카이브 리스트에 '중간 정산' 타입으로 추가 (당시의 completedTransfers 상태 보존)
             state.archives.unshift({
                 id: Date.now(),
                 title: `[중간 정산] ${now.getMonth() + 1}월 ${now.getDate()}일 정산분`,
@@ -582,7 +614,6 @@
                 completedTransfers: {...state.completedTransfers}
             });
 
-            // 현재 지출 내역 및 송금 완료 현황 초기화
             state.expenses = [];
             state.completedTransfers = {};
             
@@ -654,7 +685,7 @@
 
         // 송금 경로 계산기 (참여자와 결제자가 동일하더라도 누락 없이 총합 누적 계산)
         function getCalculatedTransfers() {
-            const gross = {}; // { from: { to: amount } }
+            const gross = {}; 
             
             // 모든 멤버 쌍에 대해 초기 0원 설정
             state.members.forEach(m1 => {
@@ -672,23 +703,25 @@
 
                 if (participants && participants.length > 0) {
                     const totalPortions = participants.reduce((sum, p) => sum + p.count, 0);
-                    const splitAmount = Math.floor(amount / totalPortions);
-                    const remainder = amount % totalPortions;
+                    if (totalPortions > 0) {
+                        const splitAmount = Math.floor(amount / totalPortions);
+                        const remainder = amount % totalPortions;
 
-                    let portionIndex = 0;
-                    participants.forEach(p => {
-                        let share = splitAmount * p.count;
-                        // 짜투리 1원 처리 배정
-                        for (let k = 0; k < p.count; k++) {
-                            if (portionIndex < remainder) {
-                                share += 1;
+                        let portionIndex = 0;
+                        participants.forEach(p => {
+                            let share = splitAmount * p.count;
+                            // 짜투리 1원 처리 배정
+                            for (let k = 0; k < p.count; k++) {
+                                if (portionIndex < remainder) {
+                                    share += 1;
+                                }
+                                portionIndex++;
                             }
-                            portionIndex++;
-                        }
-                        if (gross[p.name] && gross[p.name][payer] !== undefined) {
-                            gross[p.name][payer] += share;
-                        }
-                    });
+                            if (gross[p.name] && gross[p.name][payer] !== undefined) {
+                                gross[p.name][payer] += share;
+                            }
+                        });
+                    }
                 }
             });
 
@@ -710,15 +743,16 @@
             transfers.sort((a, b) => {
                 const isSelfA = (a.from === a.to);
                 const isSelfB = (b.from === b.to);
-                if (isSelfA && !isSelfB) return 1;  // 본인부담분은 아래로 보냄
-                if (!isSelfA && isSelfB) return -1; // 본인부담분은 아래로 보냄
+                if (isSelfA && !isSelfB) return 1;  
+                if (!isSelfA && isSelfB) return -1; 
                 return a.from.localeCompare(b.from, 'ko') || a.to.localeCompare(b.to, 'ko');
             });
 
             return transfers;
         }
 
-        function render() {
+        // UI 렌더링 함수
+        function render(resetSelection = false) {
             // 1. 인원 칩셋 리스트 생성 (가나다 순으로 표시)
             const memberListEl = document.getElementById('memberList');
             if (state.members.length === 0) {
@@ -756,12 +790,19 @@
             const checkedStates = {};
             const countStates = {};
             
-            document.querySelectorAll('.participant-row').forEach(row => {
-                const cb = row.querySelector('.participant-checkbox');
-                checkedStates[cb.value] = cb.checked;
-                const countInput = row.querySelector('.participant-count');
-                countStates[cb.value] = parseInt(countInput.value) || 1;
-            });
+            // 실시간 상태 수집 (resetSelection이 거짓일 때에만 기존의 DOM 상태 보존 실행)
+            if (!resetSelection) {
+                document.querySelectorAll('.participant-row').forEach(row => {
+                    const cb = row.querySelector('.participant-checkbox');
+                    if (cb) {
+                        checkedStates[cb.value] = cb.checked;
+                        const countInput = row.querySelector('.participant-count');
+                        if (countInput) {
+                            countStates[cb.value] = parseInt(countInput.value) || 1;
+                        }
+                    }
+                });
+            }
 
             pSelector.innerHTML = state.members.map((m) => {
                 const isChecked = checkedStates[m] !== undefined ? checkedStates[m] : false;
@@ -794,7 +835,7 @@
             } else {
                 historyListEl.innerHTML = state.expenses.map(e => {
                     const totalPortions = e.participants.reduce((sum, p) => sum + p.count, 0);
-                    const individualShare = Math.floor(e.amount / totalPortions);
+                    const individualShare = totalPortions > 0 ? Math.floor(e.amount / totalPortions) : 0;
                     const participantLabels = e.participants.map(p => p.count > 1 ? `${p.name}(${p.count}인)` : p.name).join(', ');
 
                     return `
