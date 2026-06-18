@@ -41,7 +41,7 @@
             </div>
 
             <div class="space-y-3 pt-2">
-                <!-- 방 생성 버튼 -->
+                <!-- 방 생성 버튼: 에러 없이 무조건 즉각 작동 -->
                 <button onclick="handleCreateRoomClick()" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-xl text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2">
                     <i class="fa-solid fa-share-nodes"></i> 🚀 실시간 공유 정산방 만들기
                 </button>
@@ -60,7 +60,7 @@
         </div>
     </div>
 
-    <!-- 상단 헤더: 차분하고 고급스러운 미드나잇 슬레이트 테마 (톱니바퀴 설정 아이콘 제거됨) -->
+    <!-- 상단 헤더: 차분하고 고급스러운 미드나잇 슬레이트 테마 (모든 톱니바퀴 설정창 완전 배제) -->
     <header class="bg-slate-900 text-white py-4 px-4 shadow-sm mb-4">
         <div class="max-w-5xl mx-auto flex justify-between items-center gap-2">
             <div>
@@ -68,10 +68,10 @@
                     <i class="fa-solid fa-wallet text-slate-400 text-lg"></i> TRAVEL PAY
                 </h1>
                 <div class="flex items-center gap-1.5 mt-0.5">
-                    <span id="syncStatusDot" class="w-2 h-2 rounded-full bg-red-500"></span>
+                    <span id="syncStatusDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm"></span>
                     <span id="syncStatusText" class="text-slate-400 text-[10px] md:text-xs">오프라인 모드</span>
                     <span class="text-slate-500 text-[10px] md:text-xs">|</span>
-                    <span id="roomCodeDisplay" class="text-amber-400 text-[10px] md:text-xs font-bold uppercase">방코드: 로딩중</span>
+                    <span id="roomCodeDisplay" class="text-amber-400 text-[10px] md:text-xs font-bold uppercase">방코드: 연결대기</span>
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -289,34 +289,13 @@
         <span id="toastMessage" class="truncate">알림 내용</span>
     </div>
 
-    <!-- Firebase SDK 모듈 로딩 및 정산 연동 -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // 기본 13인 고정 멤버 명단
+    <!-- 1단계: 동기식 핵심 전역 함수 및 로컬 오프라인 데이터 관리 (로딩 없이 즉시 대기 완료) -->
+    <script>
         const DEFAULT_MEMBERS = [
             "강우주", "강원준", "김찬우", "김현음", "문강민", "변현균", 
             "오서준", "이강우", "이승준", "이주호", "이하율", "장우진", "지효준"
         ];
 
-        // =========================================================================
-        // 🔑 [초간단 설정] 바로 아래의 null 자리에 파이어베이스의 { ... } 열쇠를 대입하세요!
-        // 예시: let fbConfig = { apiKey: "...", projectId: "...", ... };
-        // =========================================================================
-        let fbConfig = {
-  apiKey: "AIzaSyAyQh3vCgipwKAZdPtVZRmwq3t9qapy8H0",
-  authDomain: "travel-pay-69d2e.firebaseapp.com",
-  projectId: "travel-pay-69d2e",
-  storageBucket: "travel-pay-69d2e.firebasestorage.app",
-  messagingSenderId: "822682405166",
-  appId: "1:822682405166:web:82a1529a259a03761b12bf"
-};
-        
-        let appId = 'travel-pay-custom';
-
-        // 전역 상태 정의
         window.state = {
             members: [...DEFAULT_MEMBERS],
             expenses: [],
@@ -325,17 +304,121 @@
         };
 
         window.roomId = '';
-        let isConnected = false;
-        let unsubscribeDoc = null;
+        window.firebaseConfigured = false;
+
+        // 로컬 오프라인 전용 데이터 백업 복구기
+        window.loadLocalBackup = function() {
+            const hash = window.location.hash.replace('#', '').trim();
+            if (hash) {
+                window.roomId = hash;
+                const localBackup = localStorage.getItem('travelPay_offlineBackup_' + window.roomId);
+                if (localBackup) {
+                    try {
+                        window.state = JSON.parse(localBackup);
+                    } catch(e) {
+                        console.error("로컬 백업 로드 실패:", e);
+                    }
+                } else {
+                    window.state = {
+                        members: [...DEFAULT_MEMBERS],
+                        expenses: [],
+                        completedTransfers: {},
+                        archives: []
+                    };
+                }
+                document.getElementById('roomCodeDisplay').innerText = `방코드: ${window.roomId}`;
+                document.getElementById('homeScreen').classList.add('hidden');
+                document.getElementById('homeScreen').classList.remove('flex');
+                window.render(true);
+            } else {
+                document.getElementById('homeScreen').classList.remove('hidden');
+                document.getElementById('homeScreen').classList.add('flex');
+            }
+        };
+
+        window.saveLocalBackup = function() {
+            if (!window.firebaseConfigured && window.roomId) {
+                localStorage.setItem('travelPay_offlineBackup_' + window.roomId, JSON.stringify(window.state));
+                window.render(false);
+            }
+        };
+
+        // 방 생성 버튼을 누르면 딜레이 없이 즉시 작동
+        window.handleCreateRoomClick = function() {
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            let newCode = '';
+            for (let i = 0; i < 6; i++) {
+                newCode += letters.charAt(Math.floor(Math.random() * letters.length));
+            }
+            window.location.hash = newCode;
+            window.loadLocalBackup();
+            
+            if (!window.firebaseConfigured) {
+                showToastAlert("로컬 오프라인 모드로 정산방이 성공적으로 열렸습니다!");
+            }
+        };
+
+        window.joinRoomByCode = function() {
+            const codeInput = document.getElementById('joinRoomCode');
+            const code = codeInput.value.trim().toUpperCase();
+            if (code.length !== 6) {
+                showToastAlert("올바른 6자리 영문 코드를 입력해주세요.");
+                return;
+            }
+            window.location.hash = code;
+            window.loadLocalBackup();
+        };
+
+        window.copyRoomLink = function() {
+            const dummy = document.createElement("input");
+            document.body.appendChild(dummy);
+            dummy.value = window.location.href;
+            dummy.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToastAlert("정산방 링크가 복사되었습니다! 친구들에게 주소를 전달하세요.");
+                } else {
+                    showToastAlert("링크 복사 실패. 직접 브라우저 주소를 복사하세요.");
+                }
+            } catch (e) {
+                showToastAlert("복사할 수 없는 환경입니다.");
+            }
+            document.body.removeChild(dummy);
+        };
+
+        window.addEventListener('DOMContentLoaded', window.loadLocalBackup);
+        window.addEventListener('hashchange', window.loadLocalBackup);
+    </script>
+
+    <!-- 2단계: 파이어베이스 실시간 동기화 모듈 (열쇠가 있을 때만 가동되며 없을 시 자연스럽게 통과) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =========================================================================
+        // 🔑 [초간단 설정] 바로 아래의 null 자리에 파이어베이스의 { ... } 열쇠를 대입하세요!
+        // =========================================================================
+        let fbConfig = {
+  apiKey: "AIzaSyAyQh3vCgipwKAZdPtVZRmwq3t9qapy8H0",
+  authDomain: "travel-pay-69d2e.firebaseapp.com",
+  projectId: "travel-pay-69d2e",
+  storageBucket: "travel-pay-69d2e.firebasestorage.app",
+  messagingSenderId: "822682405166",
+  appId: "1:822682405166:web:82a1529a259a03761b12bf"
+}; 
+
+        let appId = 'travel-pay-custom';
         let db = null;
         let auth = null;
         let docRef = null;
+        let unsubscribeDoc = null;
 
-        // 클라우드 연결 이니셜라이저 (설정이 없는 경우 깔끔하게 로컬/오프라인 모드로 실행됩니다)
         async function connectCloud() {
             if (!fbConfig || !fbConfig.apiKey) {
-                console.log("실시간 연동용 fbConfig 설정이 비어 있어 로컬 모드로 작동합니다.");
-                updateOfflineUI();
+                console.log("Firebase 연결 열쇠가 비어있어 완벽한 로컬 오프라인 전용 모드로 작동합니다.");
                 return;
             }
 
@@ -344,36 +427,26 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                // 익명 로그인 수행
                 await signInAnonymously(auth);
 
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
+                        window.firebaseConfigured = true;
+                        document.getElementById('syncStatusDot').className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm animate-pulse";
+                        document.getElementById('syncStatusText').innerText = "실시간 클라우드 공유 중";
                         initRoomSync();
-                    } else {
-                        updateOfflineUI();
                     }
                 });
             } catch (e) {
-                console.error("클라우드 접속 에러: ", e);
-                updateOfflineUI();
+                console.error("클라우드 접속 에러 (키 정보 오류 가능성):", e);
             }
         }
 
-        // 실시간 동기화 바인딩
         function initRoomSync() {
             const hash = window.location.hash.replace('#', '').trim();
-            if (!hash) {
-                showHomeScreen(true);
-                return;
-            }
+            if (!hash) return;
 
-            window.roomId = hash;
-            showHomeScreen(false);
-            document.getElementById('roomCodeDisplay').innerText = `방코드: ${window.roomId}`;
-
-            // Firestore 문서 경로 바인딩
-            docRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', window.roomId);
+            docRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', hash);
 
             if (unsubscribeDoc) unsubscribeDoc();
             
@@ -385,190 +458,36 @@
                     window.state.completedTransfers = data.completedTransfers || {};
                     window.state.archives = data.archives || [];
                 } else {
-                    window.state = {
-                        members: [...DEFAULT_MEMBERS],
-                        expenses: [],
-                        completedTransfers: {},
-                        archives: []
-                    };
                     setDoc(docRef, window.state);
                 }
-
-                isConnected = true;
-                updateSyncUI(true);
                 window.render(false);
             }, (err) => {
-                console.error("데이터 동기화 실패: ", err);
-                updateSyncUI(false);
+                console.error("실시간 공유 스냅샷 오류:", err);
             });
         }
 
-        // 데이터 변경사항 클라우드 업로드
+        // 실시간 클라우드 전용 저장 인터페이스 재정의
         window.saveData = async function() {
             window.state.members.sort((a, b) => a.localeCompare(b, 'ko'));
             
-            if (isConnected && docRef) {
+            if (window.firebaseConfigured && docRef) {
                 try {
                     await setDoc(docRef, window.state);
                 } catch (e) {
-                    console.error("클라우드 데이터 업로드 실패: ", e);
+                    console.error("클라우드 업로드 실패:", e);
                 }
             } else {
-                localStorage.setItem('travelPay_offlineBackup_' + window.roomId, JSON.stringify(window.state));
-                window.render(false);
+                window.saveLocalBackup();
             }
         };
 
-        // 방 생성 유틸리티
-        window.handleCreateRoomClick = function() {
-            if (!fbConfig || !fbConfig.apiKey) {
-                // 키값이 없을 때는 로컬 모드에서 고유 해시값만 부여하고 방을 즉시 엽니다.
-                window.createNewRoom();
-                showToastAlert("로컬 오프라인 모드로 정산방을 개설했습니다.");
-                return;
-            }
-            window.createNewRoom();
-        };
-
-        window.createNewRoom = function() {
-            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-            let newCode = '';
-            for (let i = 0; i < 6; i++) {
-                newCode += letters.charAt(Math.floor(Math.random() * letters.length));
-            }
-            window.location.hash = newCode;
-            if (fbConfig && fbConfig.apiKey) {
-                initRoomSync();
-            } else {
-                window.roomId = newCode;
-                showHomeScreen(false);
-                document.getElementById('roomCodeDisplay').innerText = `방코드: ${window.roomId}`;
-                
-                // 로컬 복원 시도
-                const localBackup = localStorage.getItem('travelPay_offlineBackup_' + window.roomId);
-                if (localBackup) {
-                    window.state = JSON.parse(localBackup);
-                } else {
-                    window.state = {
-                        members: [...DEFAULT_MEMBERS],
-                        expenses: [],
-                        completedTransfers: {},
-                        archives: []
-                    };
-                }
-                window.render(true);
-            }
-        };
-
-        // 방 참가하기
-        window.joinRoomByCode = function() {
-            const codeInput = document.getElementById('joinRoomCode');
-            const code = codeInput.value.trim().toUpperCase();
-            if (code.length !== 6) {
-                showToastAlert("올바른 6자리 영문 코드를 입력해주세요.");
-                return;
-            }
-            window.location.hash = code;
-            if (fbConfig && fbConfig.apiKey) {
-                initRoomSync();
-            } else {
-                window.roomId = code;
-                showHomeScreen(false);
-                document.getElementById('roomCodeDisplay').innerText = `방코드: ${window.roomId}`;
-                const localBackup = localStorage.getItem('travelPay_offlineBackup_' + window.roomId);
-                if (localBackup) {
-                    window.state = JSON.parse(localBackup);
-                }
-                window.render(true);
-            }
-        };
-
-        // 링크 복사 유틸
-        window.copyRoomLink = function() {
-            const dummy = document.createElement("input");
-            document.body.appendChild(dummy);
-            dummy.value = window.location.href;
-            dummy.select();
-            
-            try {
-                const successful = document.execCommand('copy');
-                if (successful) {
-                    showToastAlert("실시간 정산방 링크가 복사되었습니다! 친구들에게 보내주세요.");
-                } else {
-                    showToastAlert("링크 복사 실패. 직접 주소를 복사하세요.");
-                }
-            } catch (e) {
-                showToastAlert("복사할 수 없는 브라우저 환경입니다.");
-            }
-            document.body.removeChild(dummy);
-        };
-
-        // UI 표시 토글 가이드
-        function showHomeScreen(show) {
-            const screen = document.getElementById('homeScreen');
-            if (show) {
-                screen.classList.remove('hidden');
-                screen.classList.add('flex');
-            } else {
-                screen.classList.add('hidden');
-                screen.classList.remove('flex');
-            }
-        }
-
-        function updateSyncUI(online) {
-            const dot = document.getElementById('syncStatusDot');
-            const text = document.getElementById('syncStatusText');
-            if (online) {
-                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm animate-pulse";
-                text.innerText = "실시간 클라우드 공유 중";
-            } else {
-                updateOfflineUI();
-            }
-        }
-
-        function updateOfflineUI() {
-            const dot = document.getElementById('syncStatusDot');
-            const text = document.getElementById('syncStatusText');
-            dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm";
-            text.innerText = "로컬 저장 모드";
-            if (!window.roomId) {
-                document.getElementById('roomCodeDisplay').innerText = `방코드: 로딩 대기`;
-            }
-        }
-
-        // 해시 변경 시 자동 참여 처리
-        window.addEventListener('hashchange', () => {
-            if (fbConfig && fbConfig.apiKey) {
-                initRoomSync();
-            } else {
-                const hash = window.location.hash.replace('#', '').trim();
-                if (hash) {
-                    window.roomId = hash;
-                    showHomeScreen(false);
-                    document.getElementById('roomCodeDisplay').innerText = `방코드: ${window.roomId}`;
-                    const localBackup = localStorage.getItem('travelPay_offlineBackup_' + window.roomId);
-                    if (localBackup) {
-                        window.state = JSON.parse(localBackup);
-                    }
-                    window.render(true);
-                } else {
-                    showHomeScreen(true);
-                }
-            }
-        });
-
-        // 연동 시작
+        // 로드 즉시 클라우드 연동 가동
         connectCloud();
     </script>
 
+    <!-- 3단계: 정산 어플리케이션 상세 렌더링 및 비즈니스 연산 로직 -->
     <script>
-        // 전역 함수 정의 (HTML 내 동적 콜백 바인딩용)
-        const DEFAULT_MEMBERS = [
-            "강우주", "강원준", "김찬우", "김현음", "문강민", "변현균", 
-            "오서준", "이강우", "이승준", "이주호", "이하율", "장우진", "지효준"
-        ];
-
-        // 전체 참여자 선택 제어
+        
         window.toggleAllParticipants = function(check) {
             const checkboxes = document.querySelectorAll('.participant-checkbox');
             checkboxes.forEach(cb => {
@@ -600,7 +519,6 @@
             input.value = val;
         };
 
-        // 멤버 추가 기능
         window.addMember = function() {
             const input = document.getElementById('memberInput');
             const name = input.value.trim();
@@ -622,11 +540,10 @@
             showToastAlert(`[${name}] 멤버가 추가되었습니다.`);
         };
 
-        // 멤버 삭제 기능
         window.removeMember = function(name) {
             showModal(
                 '멤버 삭제',
-                `[${name}]님을 정말로 삭제하시겠습니까? 삭제 시 기존 등록된 지출 내역의 결제자 및 참여자 데이터에서도 자동으로 제외됩니다.`,
+                `[${name}]님을 정말로 삭제하시겠습니까? 삭제 시 해당 멤버가 포함된 지출 내역에서도 자동 제외됩니다.`,
                 () => {
                     window.state.members = window.state.members.filter(m => m !== name);
 
@@ -645,7 +562,6 @@
             );
         };
 
-        // 지출 등록 추가
         window.addExpense = function() {
             const titleInput = document.getElementById('expenseTitle');
             const amountInput = document.getElementById('expenseAmount');
@@ -655,7 +571,6 @@
             const amount = parseInt(amountInput.value);
             const payer = payerSelect.value;
 
-            // 참여자 수집
             const selectedParticipants = [];
             document.querySelectorAll('.participant-row').forEach(row => {
                 const cb = row.querySelector('.participant-checkbox');
@@ -702,13 +617,11 @@
             window.saveData();
         };
 
-        // 지출 삭제
         window.removeExpense = function(id) {
             window.state.expenses = window.state.expenses.filter(e => e.id !== id);
             window.saveData();
         };
 
-        // 전체 지출 내역 초기화 처리
         let pendingAction = null;
         window.confirmResetAll = function() {
             showModal(
@@ -722,7 +635,6 @@
             );
         };
 
-        // 송금 금액 경로 계산기
         window.getCalculatedTransfers = function() {
             const gross = {}; 
             
@@ -733,7 +645,6 @@
                 });
             });
 
-            // 지출 항목별로 참여자가 결제자에게 갚아야 할 액수를 누적 합산 (가중 포션 적용)
             window.state.expenses.forEach(exp => {
                 const payer = exp.payer;
                 const participants = exp.participants;
@@ -748,7 +659,6 @@
                         let portionIndex = 0;
                         participants.forEach(p => {
                             let share = splitAmount * p.count;
-                            // 짜투리 1원 소수점 처리 배정
                             for (let k = 0; k < p.count; k++) {
                                 if (portionIndex < remainder) {
                                     share += 1;
@@ -777,7 +687,6 @@
                 });
             });
 
-            // 동일인 송금은 리스트 최하단에 배치하고, 나머지는 가나다 이름순 정렬
             transfers.sort((a, b) => {
                 const isSelfA = (a.from === a.to);
                 const isSelfB = (b.from === b.to);
@@ -789,7 +698,6 @@
             return transfers;
         };
 
-        // 중간 정산 모달 열기 및 청구서 텍스트 포맷 빌드
         window.openIntermediateSettlement = function() {
             if (window.state.expenses.length === 0) {
                 showToastAlert('중간 정산할 지출 내역이 없습니다.');
@@ -818,7 +726,7 @@
             });
             billText += `\n------------------------------------\n\n`;
 
-            billText += `💬 추천 송금 목록 (받을 사람 계좌로 입금해주세요):\n`;
+            billText += `💬 추천 송금 목록:\n`;
             if (transfers.length === 0) {
                 billText += ` - 서로 주고받을 정산금이 존재하지 않습니다. 깔끔합니다!\n`;
             } else {
@@ -841,7 +749,6 @@
             modal.classList.remove('flex');
         };
 
-        // 청구서 텍스트 복사
         window.copyBillingText = function() {
             const textarea = document.getElementById('billingTextarea');
             textarea.select();
@@ -850,16 +757,15 @@
             try {
                 const successful = document.execCommand('copy');
                 if (successful) {
-                    showToastAlert('청구서가 클립보드에 복사되었습니다! 카톡방에 공유하세요.');
+                    showToastAlert('청구서가 복사되었습니다! 카톡방에 바로 전달해 보세요.');
                 } else {
-                    showToastAlert('복사에 실패했습니다. 직접 선택하여 복사해 주세요.');
+                    showToastAlert('복사 실패. 직접 영역을 지정해 복사해 주세요.');
                 }
             } catch (err) {
-                showToastAlert('복사 중 에러가 발생했습니다.');
+                showToastAlert('복사 중 예러가 발생했습니다.');
             }
         };
 
-        // 중간 정산 실체 리셋 및 보관 처리
         window.executeIntermediateReset = function() {
             const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
             const currentTransfers = window.getCalculatedTransfers();
@@ -882,10 +788,9 @@
             
             window.saveData();
             window.closeIntermediateModal();
-            showToastAlert('중간 정산 내역이 보관실에 저장되고 새 정산판이 생성되었습니다!');
+            showToastAlert('중간 정산 내역이 보관소에 저장되고 정산판이 깔끔하게 초기화되었습니다.');
         };
 
-        // 최종 아카이브 이름 입력을 위한 커스텀 모달 노출
         window.openFinalArchivePrompt = function() {
             if (window.state.expenses.length === 0) {
                 showToastAlert('저장할 지출 내역이 없습니다.');
@@ -903,7 +808,6 @@
             modal.classList.remove('flex');
         };
 
-        // 최종 정산 마감
         window.executeFinalArchive = function() {
             const input = document.getElementById('archiveTripNameInput');
             const tripName = input.value.trim();
@@ -931,10 +835,9 @@
             
             window.saveData();
             window.closeFinalArchivePrompt();
-            showToastAlert('최종 마감 처리되었으며 정산 내역이 영구 보관소로 이동했습니다!');
+            showToastAlert('최종 마감되어 모든 내역이 영구 보관실로 이동되었습니다.');
         };
 
-        // 활성 화면 내 입금 완료 체크 토글 기능
         window.toggleTransferStatus = function(uniqueKey) {
             if (window.state.completedTransfers[uniqueKey]) {
                 delete window.state.completedTransfers[uniqueKey];
@@ -944,7 +847,6 @@
             window.saveData();
         };
 
-        // 아카이브 보관소 내의 개별 입금 상태 실시간 변경 제어
         window.toggleArchiveTransferStatus = function(archiveId, uniqueKey) {
             const arch = window.state.archives.find(a => a.id === archiveId);
             if (!arch) return;
@@ -955,20 +857,19 @@
 
             if (arch.completedTransfers[uniqueKey]) {
                 delete arch.completedTransfers[uniqueKey];
-                showToastAlert("미송금/미확인 상태로 되돌렸습니다.");
+                showToastAlert("미송금 상태로 변경되었습니다.");
             } else {
                 arch.completedTransfers[uniqueKey] = true;
-                showToastAlert("송금/확인 완료 상태로 처리했습니다.");
+                showToastAlert("송금 완료 확인 완료!");
             }
 
             window.saveData();
         };
 
-        // 아카이브 삭제 기능
         window.deleteArchive = function(id) {
             showModal(
                 '보관 기록 삭제',
-                '선택한 정산 기록을 보관소에서 완전히 영구 삭제하시겠습니까?',
+                '선택한 정산 기록을 보관소에서 영구 삭제하시겠습니까?',
                 () => {
                     window.state.archives = window.state.archives.filter(a => a.id !== id);
                     window.saveData();
@@ -976,9 +877,8 @@
             );
         };
 
-        // 화면 렌더링 설계
+        // UI 실시간 동적 렌더러
         window.render = function(resetSelection = false) {
-            // 1. 인원 칩셋 리스트 생성 (가나다 순으로 표시)
             const memberListEl = document.getElementById('memberList');
             if (window.state.members.length === 0) {
                 memberListEl.innerHTML = '<span class="text-slate-400 text-xs w-full text-center py-2">등록된 인원이 없습니다. 멤버를 추가해보세요!</span>';
@@ -994,7 +894,6 @@
                 `).join('');
             }
 
-            // 2. 지출 폼 내의 "결제자" 셀렉트 박스 업데이트 (기본값: 오서준 세팅)
             const payerSelect = document.getElementById('expensePayer');
             const previousPayer = payerSelect.value;
             payerSelect.innerHTML = window.state.members.map(m => `
@@ -1009,7 +908,6 @@
                 payerSelect.value = window.state.members[0];
             }
 
-            // 3. 지출 폼 참여자 및 포션 조절기 영역 업데이트
             const pSelector = document.getElementById('participantsSelector');
             const checkedStates = {};
             const countStates = {};
@@ -1046,15 +944,14 @@
                 `;
             }).join('');
 
-            // 4. 지출 상세 내역 리스트 렌더링
             const historyListEl = document.getElementById('expenseHistory');
             if (window.state.expenses.length === 0) {
                 historyListEl.innerHTML = `
                     <div class="p-10 text-center text-slate-400 text-sm">
                         <i class="fa-solid fa-folder-open text-2xl mb-2 block text-slate-300"></i>
-                        아직 추가된 지출 내역이 없습니다.
+                        지출 내역이 비어 있습니다.
                     </div>`;
-                document.getElementById('lastUpdated').innerText = '최근 업데이트 없음';
+                document.getElementById('lastUpdated').innerText = '업데이트 없음';
             } else {
                 historyListEl.innerHTML = window.state.expenses.map(e => {
                     const totalPortions = e.participants.reduce((sum, p) => sum + p.count, 0);
@@ -1072,7 +969,7 @@
                                         </span>
                                     </div>
                                     <p class="text-[10px] md:text-[11px] text-slate-500 font-medium break-all leading-normal">
-                                        참여 (${totalPortions}인분): <span class="text-slate-700 font-semibold">${participantLabels}</span>
+                                        참여 (${totalPortions}인): <span class="text-slate-700 font-semibold">${participantLabels}</span>
                                     </p>
                                     <div class="flex items-center gap-2 text-[10px] md:text-[11px] text-slate-400">
                                         <span><i class="fa-regular fa-user"></i> 결제자: <strong class="text-slate-600">${e.payer}</strong></span>
@@ -1093,18 +990,16 @@
                 document.getElementById('lastUpdated').innerText = `최근 업데이트: ${window.state.expenses[0].time}`;
             }
 
-            // 누적 총 지출 합산 및 상단 카드 갱신
             const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
             document.getElementById('totalSpentAmount').innerText = `${totalSpent.toLocaleString()} 원`;
-            document.getElementById('statSummaryText').innerText = `현재 누적 지출 횟수: ${window.state.expenses.length}회`;
+            document.getElementById('statSummaryText').innerText = `누적 지출 횟수: ${window.state.expenses.length}회`;
             document.getElementById('memberCount').innerText = `${window.state.members.length}명`;
 
-            // 5. 송금 최적화 기반 추천 송금 가이드 UI 구성
             const transfers = window.getCalculatedTransfers();
             const guideListEl = document.getElementById('transferGuideList');
             
             if (transfers.length === 0) {
-                guideListEl.innerHTML = `<p class="text-xs text-slate-500 py-1"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> 현재 지출 금액들이 고르게 정산되었습니다. 주고받을 송금 정보가 없습니다.</p>`;
+                guideListEl.innerHTML = `<p class="text-xs text-slate-500 py-1"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> 주고받을 잔액이 깔끔하게 맞아떨어집니다.</p>`;
             } else {
                 guideListEl.innerHTML = transfers.map(t => {
                     const uniqueTransferKey = `${t.from}-${t.to}-${t.amount}`;
@@ -1130,13 +1025,12 @@
                 }).join('');
             }
 
-            // 6. 아카이브 기록 보관소 렌더링
             const archiveContainer = document.getElementById('archiveContainer');
             if (window.state.archives.length === 0) {
                 archiveContainer.innerHTML = `
                     <div class="p-8 text-center text-slate-400 border border-dashed border-emerald-200 rounded-2xl bg-white/40">
                         <i class="fa-solid fa-folder-closed text-3xl mb-2 text-emerald-300 block"></i>
-                        아직 보관된 과거 정산 히스토리가 없습니다.
+                        아직 보관된 과거 정산이 없습니다.
                     </div>`;
             } else {
                 archiveContainer.innerHTML = window.state.archives.map((arch) => {
@@ -1154,7 +1048,7 @@
 
                     let transfersDetailHtml = '';
                     if (arch.transfers.length === 0) {
-                        transfersDetailHtml = `<p class="text-slate-400 text-xs italic">주고받을 정산 내역이 없는 깔끔한 상태입니다.</p>`;
+                        transfersDetailHtml = `<p class="text-slate-400 text-xs italic">송금이 필요 없는 깔끔한 내역입니다.</p>`;
                     } else {
                         transfersDetailHtml = arch.transfers.map(t => {
                             const uniqueKey = `${t.from}-${t.to}-${t.amount}`;
@@ -1168,7 +1062,6 @@
                                             <span class="font-bold text-slate-700 text-xs bg-slate-100 px-2.5 py-1 rounded-md shrink-0 border border-slate-200/60">${t.from}</span>
                                             <span class="text-slate-400 text-[10px]"><i class="fa-solid fa-arrow-right"></i></span>
                                             <span class="font-bold text-indigo-700 text-xs bg-indigo-50 px-2.5 py-1 rounded-md shrink-0 border border-indigo-100/40">${t.to}</span>
-                                            ${isSelf ? `<span class="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[9px] px-1.5 py-0.1 rounded font-normal shrink-0">본인</span>` : ''}
                                         </div>
                                         <div class="mt-1">
                                             <span class="text-indigo-600 text-base font-extrabold tracking-tight">${t.amount.toLocaleString()} 원</span>
@@ -1176,11 +1069,11 @@
                                     </div>
                                     <div class="flex items-center gap-2.5 self-end sm:self-center shrink-0">
                                         ${isDone 
-                                            ? `<span class="text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-circle-check"></i> ${isSelf ? '확인 완료' : '송금 완료'}</span>`
-                                            : `<span class="text-amber-700 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-clock"></i> ${isSelf ? '미확인' : '미송금'}</span>`
+                                            ? `<span class="text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-circle-check"></i> 완료</span>`
+                                            : `<span class="text-amber-700 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-clock"></i> 대기</span>`
                                         }
                                         <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="px-3 py-1.5 rounded-lg text-[11px] md:text-xs font-bold transition-all bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 border border-slate-200 flex items-center gap-1.5 shrink-0">
-                                            <i class="fa-solid fa-arrows-rotate text-[10px] text-slate-500"></i> 상태 변경
+                                            <i class="fa-solid fa-arrows-rotate text-[10px] text-slate-500"></i> 변경
                                         </button>
                                     </div>
                                 </div>
@@ -1219,7 +1112,7 @@
 
                             <div class="space-y-2 pt-3 border-t border-slate-100">
                                 <p class="text-[11px] text-slate-600 font-semibold flex items-center gap-1.5">
-                                    <i class="fa-solid fa-list-check text-slate-500"></i> 상세 내역 및 정산 현황
+                                    <i class="fa-solid fa-list-check text-slate-500"></i> 상세 송금 현황
                                 </p>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-1.5">
                                     ${transfersDetailHtml}
@@ -1231,7 +1124,6 @@
             }
         };
 
-        // 토스트 알림 헬퍼
         window.showToastAlert = function(msg) {
             const toast = document.getElementById('toastAlert');
             const toastMsg = document.getElementById('toastMessage');
@@ -1246,7 +1138,6 @@
             }, 3000);
         };
 
-        // 모달 관리 헬퍼
         window.showModal = function(title, message, confirmCallback) {
             document.getElementById('modalTitle').innerText = title;
             document.getElementById('modalMessage').innerText = message;
@@ -1264,7 +1155,6 @@
             pendingAction = null;
         };
 
-        // 초기 수동 렌더링
         window.render(true);
     </script>
 </body>
