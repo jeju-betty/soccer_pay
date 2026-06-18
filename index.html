@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>트래블 페이 - 스마트 지출별 정산</title>
+    <title>트래블 페이 - 실시간 공유 지출 정산</title>
     <!-- Tailwind CSS 및 FontAwesome 아이콘 적용 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -12,16 +12,14 @@
         body { 
             font-family: 'Pretendard', sans-serif; 
             background-color: #f8fafc; 
-            -webkit-text-size-adjust: none; /* iOS 폰트 크기 자동 조절 방지 */
+            -webkit-text-size-adjust: none;
         }
-        /* 스크롤바 커스텀 및 모달 스크롤 자연스럽게 처리 */
         .no-scrollbar::-webkit-scrollbar { 
             display: none; 
         }
         .smooth-scroll {
-            -webkit-overflow-scrolling: touch; /* 모바일 관성 스크롤 활성화 */
+            -webkit-overflow-scrolling: touch;
         }
-        /* 모바일 터치 하이라이트 제거 */
         input, button, select, label {
             -webkit-tap-highlight-color: transparent;
         }
@@ -29,34 +27,79 @@
 </head>
 <body class="min-h-screen pb-12 text-slate-800 selection:bg-slate-200">
 
+    <!-- [홈 화면] 방 만들기 / 참여하기 (URL에 방 ID가 없을 때 표시) -->
+    <div id="homeScreen" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-6">
+            <div class="space-y-2">
+                <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-800 text-3xl">
+                    <i class="fa-solid fa-plane-departure"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900 tracking-tight">우리들의 여행 정산 총무</h2>
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    실시간 클라우드 공유 정산방을 개설하여<br>13명의 친구들과 실시간으로 함께 정산해 보세요!
+                </p>
+            </div>
+
+            <div class="space-y-3 pt-2">
+                <button onclick="createNewRoom()" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-xl text-sm font-bold transition-all shadow-md">
+                    🚀 실시간 공유 정산방 만들기
+                </button>
+                <div class="relative flex py-2 items-center text-xs text-slate-300">
+                    <div class="flex-grow border-t border-slate-200"></div>
+                    <span class="flex-shrink mx-4 text-slate-400">또는</span>
+                    <div class="flex-grow border-t border-slate-200"></div>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="joinRoomCode" placeholder="6자리 방 코드 입력" class="w-full px-3 py-2 rounded-lg border border-slate-200 outline-none text-sm text-center font-bold tracking-widest uppercase">
+                    <button onclick="joinRoomByCode()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-lg text-xs font-bold transition-all">
+                        참여
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 상단 헤더: 차분하고 고급스러운 미드나잇 슬레이트 테마 -->
-    <header class="bg-slate-900 text-white py-4 md:py-6 px-4 shadow-sm mb-4 md:mb-6">
+    <header class="bg-slate-900 text-white py-4 px-4 shadow-sm mb-4">
         <div class="max-w-5xl mx-auto flex justify-between items-center gap-2">
             <div>
                 <h1 class="text-xl md:text-2xl font-bold tracking-tight flex items-center gap-1.5">
                     <i class="fa-solid fa-wallet text-slate-400 text-lg"></i> TRAVEL PAY
                 </h1>
-                <p class="text-slate-400 text-[10px] md:text-xs mt-0.5">지출마다 참여 멤버를 선택해 맞춤형으로 1/N 정산을 계산합니다.</p>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                    <span id="syncStatusDot" class="w-2 h-2 rounded-full bg-red-500"></span>
+                    <span id="syncStatusText" class="text-slate-400 text-[10px] md:text-xs">오프라인 모드</span>
+                    <span class="text-slate-500 text-[10px] md:text-xs">|</span>
+                    <span id="roomCodeDisplay" class="text-amber-400 text-[10px] md:text-xs font-bold uppercase">방코드: 로딩중</span>
+                </div>
             </div>
-            <button onclick="confirmResetAll()" class="bg-slate-800 hover:bg-red-500 active:scale-95 transition-all px-2.5 py-1.5 rounded-lg text-[10px] md:text-xs font-semibold flex items-center gap-1 shrink-0">
-                <i class="fa-solid fa-rotate-right"></i> 전체 삭제
-            </button>
+            <div class="flex items-center gap-2">
+                <button onclick="copyRoomLink()" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1">
+                    <i class="fa-solid fa-share-nodes"></i> <span class="hidden xs:inline">링크 복사</span>
+                </button>
+                <button onclick="openConfigModal()" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 p-2 rounded-lg transition-all" title="클라우드 설정">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+                <button onclick="confirmResetAll()" class="bg-slate-800 hover:bg-red-500 active:scale-95 transition-all px-2.5 py-1.5 rounded-lg text-[10px] md:text-xs font-semibold flex items-center gap-1 shrink-0">
+                    <i class="fa-solid fa-rotate-right"></i> 전체 삭제
+                </button>
+            </div>
         </div>
     </header>
 
     <!-- 메인 컨텐츠 영역 -->
-    <main class="max-w-5xl mx-auto px-3 md:px-4 grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
+    <main class="max-w-5xl mx-auto px-3 md:px-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
         
         <!-- 왼쪽 사이드바: 입력 폼 (lg: 5칸) -->
-        <div class="lg:col-span-5 space-y-4 md:space-y-6">
+        <div class="lg:col-span-5 space-y-4">
             
-            <!-- 멤버 정보 (유연한 인원 관리) -->
-            <section class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-100">
-                <div class="flex justify-between items-center mb-3 md:mb-4">
-                    <h2 class="text-sm md:text-base font-bold flex items-center gap-1.5 text-slate-700">
+            <!-- 멤버 정보 -->
+            <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm font-bold flex items-center gap-1.5 text-slate-700">
                         <i class="fa-solid fa-user-group text-slate-500"></i> 정산 멤버 관리
                     </h2>
-                    <span id="memberCount" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-semibold">13명</span>
+                    <span id="memberCount" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-semibold">0명</span>
                 </div>
 
                 <!-- 멤버 입력창 -->
@@ -74,8 +117,8 @@
             </section>
 
             <!-- 지출 입력 -->
-            <section class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-100">
-                <h2 class="text-sm md:text-base font-bold flex items-center gap-1.5 text-slate-700 mb-3.5">
+            <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                <h2 class="text-sm font-bold flex items-center gap-1.5 text-slate-700 mb-3">
                     <i class="fa-solid fa-receipt text-slate-500"></i> 지출 상세 등록
                 </h2>
                 <div class="space-y-3.5">
@@ -96,7 +139,7 @@
                         </select>
                     </div>
 
-                    <!-- 참여한 사람 선택 (체크박스 및 가중치 조절기) -->
+                    <!-- 참여한 사람 선택 -->
                     <div>
                         <div class="flex justify-between items-center mb-1.5">
                             <label class="text-xs font-semibold text-slate-500 flex items-center gap-1">
@@ -109,7 +152,7 @@
                             </div>
                         </div>
                         <div id="participantsSelector" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto p-2 border border-slate-100 rounded-lg bg-slate-50/50 smooth-scroll">
-                            <!-- 동적으로 체크박스 및 포션 조절기 생성 -->
+                            <!-- 동적으로 생성 -->
                         </div>
                     </div>
 
@@ -121,15 +164,15 @@
         </div>
 
         <!-- 오른쪽 대시보드 영역 -->
-        <div class="lg:col-span-7 space-y-4 md:space-y-6">
+        <div class="lg:col-span-7 space-y-4">
             
-            <!-- 누적 총 지출 카드 (그라파이트 딥그레이 슬레이트 그라데이션) -->
-            <section class="bg-gradient-to-br from-slate-800 to-slate-900 text-white p-5 md:p-6 rounded-3xl shadow-md relative overflow-hidden">
+            <!-- 누적 총 지출 카드 -->
+            <section class="bg-gradient-to-br from-slate-800 to-slate-900 text-white p-5 rounded-3xl shadow-md relative overflow-hidden">
                 <div class="absolute right-4 top-4 text-8xl text-slate-700/15 pointer-events-none">
                     <i class="fa-solid fa-calculator"></i>
                 </div>
-                <p class="text-slate-300 text-xs md:text-sm font-medium">우리 멤버들의 누적 총 지출액</p>
-                <h3 class="text-2xl md:text-3xl lg:text-4xl font-extrabold mt-1 mb-4 tracking-tight" id="totalSpentAmount">0 원</h3>
+                <p class="text-slate-300 text-xs font-medium">우리 멤버들의 누적 총 지출액</p>
+                <h3 class="text-2xl md:text-3xl font-extrabold mt-1 mb-4 tracking-tight" id="totalSpentAmount">0 원</h3>
                 
                 <div class="flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
                     <p class="text-[11px] text-slate-400" id="statSummaryText">등록된 정산 정보가 없습니다.</p>
@@ -148,20 +191,20 @@
 
             <!-- 1. 누적 지출 상세 리스트 -->
             <section class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div class="px-4 py-3 md:px-5 md:py-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                <div class="px-4 py-3 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
                     <h2 class="font-bold text-slate-700 text-xs md:text-sm flex items-center gap-1.5">
                         <i class="fa-solid fa-list-ul text-slate-500"></i> 누적 지출 내역 <span class="text-[10px] text-slate-400 font-normal">(1/N 금액 상세 표시)</span>
                     </h2>
                     <span class="text-[10px] text-slate-400 font-medium" id="lastUpdated">최근 업데이트 없음</span>
                 </div>
                 
-                <div id="expenseHistory" class="divide-y divide-slate-100 max-h-[300px] md:max-h-[350px] overflow-y-auto smooth-scroll">
+                <div id="expenseHistory" class="divide-y divide-slate-100 max-h-[300px] overflow-y-auto smooth-scroll">
                     <!-- 지출 내역 동적 로드 -->
                 </div>
             </section>
 
-            <!-- 2. 최적의 송금 가이드 (누가 누구에게 보내야 하나) -->
-            <section class="bg-slate-100/50 border border-slate-200/50 p-4 md:p-5 rounded-2xl">
+            <!-- 2. 추천 송금 가이드 -->
+            <section class="bg-slate-100/50 border border-slate-200/50 p-4 rounded-2xl">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-xs md:text-sm font-bold text-slate-800 flex items-center gap-1.5">
                         <i class="fa-solid fa-paper-plane text-slate-500"></i> 추천 송금 가이드 <span class="text-[9px] md:text-[10px] font-normal text-slate-500">(완료 후 체크해주세요)</span>
@@ -174,10 +217,10 @@
         </div>
     </main>
 
-    <!-- 하단 보관소 영역 (아카이브 목록 - 따뜻한 파스텔 에메랄드/세이지 그린 톤) -->
-    <section class="max-w-5xl mx-auto px-3 md:px-4 mt-6 md:mt-8">
+    <!-- 하단 보관소 영역 (아카이브 목록 - 파스텔톤 세이지 그린) -->
+    <section class="max-w-5xl mx-auto px-3 mt-6">
         <div class="bg-emerald-50/50 text-slate-800 p-4 md:p-6 rounded-3xl shadow-sm border border-emerald-100/80">
-            <h2 class="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-emerald-800">
+            <h2 class="text-base font-bold mb-3 flex items-center gap-2 text-emerald-800">
                 <i class="fa-solid fa-box-archive text-emerald-500"></i> 여행 정산 기록 보관소 (중간/최종 아카이브)
             </h2>
             <div id="archiveContainer" class="space-y-4">
@@ -188,9 +231,9 @@
 
     <!-- 중간 정산 공유 및 리셋을 위한 전용 모달 -->
     <div id="intermediateModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl p-4 md:p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto smooth-scroll">
+        <div class="bg-white rounded-2xl p-4 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto smooth-scroll">
             <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
+                <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
                     <i class="fa-solid fa-file-invoice-dollar text-amber-500"></i> 중간 정산 청구서 생성됨
                 </h3>
                 <button onclick="closeIntermediateModal()" class="text-slate-400 hover:text-slate-600 text-lg p-1">
@@ -202,10 +245,9 @@
                 아래 텍스트를 복사하여 카카오톡 단체 톡방 등에 공유한 뒤, <strong>[중간 정산 완료 및 리셋]</strong> 버튼을 누르면 현재 내역은 보관소에 저장되고 지출 목록이 깨끗하게 초기화되어 다음 정산을 진행할 수 있습니다.
             </p>
 
-            <!-- 청구서 텍스트 프리뷰 영역 -->
             <textarea id="billingTextarea" readonly class="w-full h-48 md:h-64 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none resize-none no-scrollbar"></textarea>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3 pt-1">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <button onclick="copyBillingText()" class="bg-amber-500 hover:bg-amber-600 active:scale-95 text-white py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
                     <i class="fa-solid fa-copy"></i> 청구서 클립보드 복사
                 </button>
@@ -219,7 +261,7 @@
     <!-- 최종 아카이브 이름 입력을 위한 커스텀 모달 -->
     <div id="archivePromptModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4">
-            <h3 class="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
+            <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
                 <i class="fa-solid fa-box-archive text-emerald-500"></i> 최종 정산 마감 및 보관
             </h3>
             <p class="text-xs text-slate-500">이번 여행의 이름을 입력해 주세요. 누적 지출와 송금 가이드 완료 정보가 아카이브 보관실로 이동합니다.</p>
@@ -231,7 +273,38 @@
         </div>
     </div>
 
-    <!-- 커스텀 알림/컨펌 모달 (alert/confirm 대체) -->
+    <!-- 커스텀 클라우드 키 설정 모달 (깃허브 배포 개발자용) -->
+    <div id="configModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="text-base font-bold text-slate-800 flex items-center gap-1.5">
+                    <i class="fa-solid fa-gear text-slate-500"></i> 개인 클라우드 공유 설정
+                </h3>
+                <button onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600 text-lg p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <p class="text-[11px] text-slate-500 leading-relaxed">
+                본인의 깃허브 페이지에 배포하여 독자적인 실시간 데이터 공유 클라우드를 구축하고 싶다면, 아래에 직접 생성한 무료 데이터베이스 API 설정을 붙여넣고 저장해 주세요.
+            </p>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[11px] font-bold text-slate-600 block mb-1">앱 아이디 (임의 지정)</label>
+                    <input type="text" id="configAppId" placeholder="예: my-travel-app" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-slate-500">
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-slate-600 block mb-1">Firebase Config JSON 텍스트</label>
+                    <textarea id="configFirebaseConfig" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "storageBucket": "...", "messagingSenderId": "...", "appId": "..." }' class="w-full h-32 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-mono focus:outline-none"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2.5 pt-2 border-t">
+                <button onclick="clearCustomConfig()" class="px-3 py-1.5 bg-slate-100 hover:bg-red-50 text-red-600 text-xs font-semibold rounded-lg transition-colors">설정 초기화</button>
+                <button onclick="saveCustomConfig()" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg transition-colors">저장 후 재연결</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 커스텀 알림/컨펌 모달 -->
     <div id="confirmModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl p-5 max-w-sm w-full shadow-xl">
             <h3 class="text-base font-bold text-slate-800 mb-2" id="modalTitle">확인</h3>
@@ -249,118 +322,302 @@
         <span id="toastMessage" class="truncate">알림 내용</span>
     </div>
 
-    <script>
-        // 초기 기본 고정 멤버 목록 (13명 가나다순)
+    <!-- Firebase SDK 모듈 로딩 및 정산 연동 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 기본 13인 고정 멤버 명단
         const DEFAULT_MEMBERS = [
             "강우주", "강원준", "김찬우", "김현음", "문강민", "변현균", 
             "오서준", "이강우", "이승준", "이주호", "이하율", "장우진", "지효준"
         ];
 
-        // 새로운 고유 격리 스토리지 버전 키 (v11)
-        const STORAGE_KEY = 'travelPayState_v11';
+        // 1. 클라우드 연동 정보 취득 및 가동 분기
+        // (미리 바인딩된 __firebase_config가 존재하면 사용하고, 없을 경우 로컬 브라우저 세팅을 우선 로드함)
+        apiKey: "AIzaSyAyQh3vCgipwKAZdPtVZRmwq3t9qapy8H0",
+  authDomain: "travel-pay-69d2e.firebaseapp.com",
+  projectId: "travel-pay-69d2e",
+  storageBucket: "travel-pay-69d2e.firebasestorage.app",
+  messagingSenderId: "822682405166",
+  appId: "1:822682405166:web:82a1529a259a03761b12bf"
+        let appId = 'travel-pay-custom';
 
-        let state = {
+        // 개발 환경 주입 체크
+        const injectedConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+        const injectedAppId = typeof __app_id !== 'undefined' ? __app_id : null;
+
+        if (injectedConfig) {
+            fbConfig = JSON.parse(injectedConfig);
+            appId = injectedAppId || 'travel-pay-default';
+        } else {
+            // 사용자 커스텀 설정 로드
+            const customConfigStr = localStorage.getItem('travelPay_customFirebaseConfig');
+            const customAppId = localStorage.getItem('travelPay_customAppId');
+            if (customConfigStr) {
+                try {
+                    fbConfig = JSON.parse(customConfigStr);
+                    appId = customAppId || 'travel-pay-custom';
+                } catch (e) {
+                    console.error("클라우드 설정 형식이 잘못되었습니다.", e);
+                }
+            }
+        }
+
+        // 전역 상태 정의
+        window.state = {
             members: [...DEFAULT_MEMBERS],
             expenses: [],
-            completedTransfers: {}, 
-            archives: [] 
+            completedTransfers: {},
+            archives: []
         };
 
-        // 로컬 스토리지 데이터 불러오기 및 하위 호환 마이그레이션
-        function loadData() {
-            let savedData = localStorage.getItem(STORAGE_KEY);
-            
-            // 이전 버전의 데이터가 존재하고 새 버전 데이터가 없는 경우 복사 마이그레이션 수행
-            if (!savedData) {
-                const legacyKeys = ['travelPayState_v10', 'travelPayState_v9', 'travelPayState'];
-                for (const oldKey of legacyKeys) {
-                    const legacyData = localStorage.getItem(oldKey);
-                    if (legacyData) {
-                        savedData = legacyData;
-                        localStorage.setItem(STORAGE_KEY, legacyData);
-                        break;
-                    }
-                }
+        window.roomId = '';
+        let isConnected = false;
+        let unsubscribeDoc = null;
+        let db = null;
+        let auth = null;
+        let docRef = null;
+
+        // 2. 클라우드 연결 이니셜라이저 (auth가 완료된 후 안전하게 바인딩)
+        async function connectCloud() {
+            if (!fbConfig) {
+                updateOfflineUI();
+                return;
             }
 
-            if (savedData) {
+            try {
+                const app = initializeApp(fbConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // 익명 또는 커스텀 인증 수행 (MANDATORY RULE 3)
+                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (token) {
+                    await signInWithCustomToken(auth, token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        initRoomSync();
+                    } else {
+                        updateOfflineUI();
+                    }
+                });
+            } catch (e) {
+                console.error("클라우드 접속 에러: ", e);
+                updateOfflineUI();
+            }
+        }
+
+        // 실시간 동기화 바인딩
+        function initRoomSync() {
+            const hash = window.location.hash.replace('#', '').trim();
+            if (!hash) {
+                showHomeScreen(true);
+                return;
+            }
+
+            window.roomId = hash;
+            showHomeScreen(false);
+            document.getElementById('roomCodeDisplay').innerText = `방코드: ${window.roomId}`;
+
+            // STRICT RULE 1: /artifacts/{appId}/public/data/{collectionName}/{documentId}
+            docRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', window.roomId);
+
+            // 실시간 리스너 작동 (MANDATORY ERROR CALLBACKS)
+            if (unsubscribeDoc) unsubscribeDoc();
+            
+            unsubscribeDoc = onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    window.state.members = data.members || [...DEFAULT_MEMBERS];
+                    window.state.expenses = data.expenses || [];
+                    window.state.completedTransfers = data.completedTransfers || {};
+                    window.state.archives = data.archives || [];
+                } else {
+                    // 방이 비어있으면 초기 템플릿 구조 강제 생성
+                    window.state = {
+                        members: [...DEFAULT_MEMBERS],
+                        expenses: [],
+                        completedTransfers: {},
+                        archives: []
+                    };
+                    setDoc(docRef, window.state);
+                }
+
+                isConnected = true;
+                updateSyncUI(true);
+                window.render(false);
+            }, (err) => {
+                console.error("데이터 동기화 실패: ", err);
+                showToastAlert("실시간 연결이 끊어졌습니다. 잠시 후 자동 재시도합니다.");
+                updateSyncUI(false);
+            });
+        }
+
+        // 데이터 변경사항 클라우드 업로드
+        window.saveData = async function() {
+            // 가나다 정렬 보존
+            window.state.members.sort((a, b) => a.localeCompare(b, 'ko'));
+            
+            if (isConnected && docRef) {
                 try {
-                    const parsed = JSON.parse(savedData);
-                    state.members = parsed.members || [...DEFAULT_MEMBERS];
-                    state.expenses = parsed.expenses || [];
-                    state.completedTransfers = parsed.completedTransfers || {};
-                    state.archives = parsed.archives || [];
-                    
-                    state.members.sort((a, b) => a.localeCompare(b, 'ko'));
+                    await setDoc(docRef, window.state);
                 } catch (e) {
-                    console.error("데이터 복구 중 오류 발생: ", e);
+                    console.error("클라우드 데이터 업로드 실패: ", e);
+                    showToastAlert("클라우드 전송 실패. 네트워크 상태를 확인하세요.");
                 }
             } else {
-                state.members = [...DEFAULT_MEMBERS];
-                state.expenses = [];
-                state.completedTransfers = {};
-                state.archives = [];
+                // 오프라인 모드일 경우 LocalStorage로 임시 폴백 백업 가동
+                localStorage.setItem('travelPay_offlineBackup_' + window.roomId, JSON.stringify(window.state));
+                window.render(false);
+            }
+        };
+
+        // 방 생성 유틸리티
+        window.createNewRoom = function() {
+            // 무작위 6자리 알파벳 대문자 생성
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            let newCode = '';
+            for (let i = 0; i < 6; i++) {
+                newCode += letters.charAt(Math.floor(Math.random() * letters.length));
+            }
+            window.location.hash = newCode;
+            initRoomSync();
+        };
+
+        // 방 참가하기
+        window.joinRoomByCode = function() {
+            const codeInput = document.getElementById('joinRoomCode');
+            const code = codeInput.value.trim().toUpperCase();
+            if (code.length !== 6) {
+                showToastAlert("올바른 6자리 영문 코드를 입력해주세요.");
+                return;
+            }
+            window.location.hash = code;
+            initRoomSync();
+        };
+
+        // 링크 복사 유틸
+        window.copyRoomLink = function() {
+            const dummy = document.createElement("input");
+            document.body.appendChild(dummy);
+            dummy.value = window.location.href;
+            dummy.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToastAlert("실시간 정산방 링크가 복사되었습니다! 친구들에게 보내주세요.");
+                } else {
+                    showToastAlert("링크 복사 실패. 직접 주소를 복사하세요.");
+                }
+            } catch (e) {
+                showToastAlert("복사할 수 없는 브라우저 환경입니다.");
+            }
+            document.body.removeChild(dummy);
+        };
+
+        // 개발자 설정 모달 제어
+        window.openConfigModal = function() {
+            document.getElementById('configAppId').value = appId;
+            document.getElementById('configFirebaseConfig').value = fbConfig ? JSON.stringify(fbConfig, null, 2) : '';
+            document.getElementById('configModal').classList.remove('hidden');
+            document.getElementById('configModal').classList.add('flex');
+        };
+
+        window.closeConfigModal = function() {
+            document.getElementById('configModal').classList.add('hidden');
+            document.getElementById('configModal').classList.remove('flex');
+        };
+
+        window.saveCustomConfig = function() {
+            const customAppId = document.getElementById('configAppId').value.trim();
+            const customConfigStr = document.getElementById('configFirebaseConfig').value.trim();
+
+            if (!customAppId || !customConfigStr) {
+                showToastAlert("모든 빈칸을 채워주셔야 설정 저장이 완료됩니다.");
+                return;
             }
 
-            // 참여자 필드가 단순 스트링 배열일 경우 구조 정규화 변환
-            state.expenses.forEach(exp => {
-                if (exp.participants && exp.participants.length > 0) {
-                    exp.participants = exp.participants.map(p => {
-                        if (typeof p === 'string') {
-                            return { name: p, count: 1 };
-                        }
-                        if (p && typeof p === 'object' && p.name) {
-                            return { name: p.name, count: typeof p.count === 'number' ? p.count : 1 };
-                        }
-                        return { name: String(p), count: 1 };
-                    });
-                } else {
-                    exp.participants = [];
-                }
-            });
+            try {
+                JSON.parse(customConfigStr); // JSON 형식 검증
+                localStorage.setItem('travelPay_customAppId', customAppId);
+                localStorage.setItem('travelPay_customFirebaseConfig', customConfigStr);
+                
+                showToastAlert("개인 클라우드 정보가 기록되었습니다. 새로고침 후 연동됩니다!");
+                setTimeout(() => window.location.reload(), 1000);
+            } catch (e) {
+                showToastAlert("Firebase Config JSON 형식이 틀렸습니다. 다시 확인해보세요.");
+            }
+        };
 
-            state.archives.forEach(arch => {
-                if (arch.expenses) {
-                    arch.expenses.forEach(exp => {
-                        if (exp.participants && exp.participants.length > 0) {
-                            exp.participants = exp.participants.map(p => {
-                                if (typeof p === 'string') {
-                                    return { name: p, count: 1 };
-                                }
-                                if (p && typeof p === 'object' && p.name) {
-                                    return { name: p.name, count: typeof p.count === 'number' ? p.count : 1 };
-                                }
-                                return { name: String(p), count: 1 };
-                            });
-                        } else {
-                            exp.participants = [];
-                        }
-                    });
-                }
-            });
+        window.clearCustomConfig = function() {
+            localStorage.removeItem('travelPay_customAppId');
+            localStorage.removeItem('travelPay_customFirebaseConfig');
+            showToastAlert("설정이 초기화되었습니다. 기본 가상 클라우드로 연동됩니다.");
+            setTimeout(() => window.location.reload(), 1000);
+        };
 
-            // 화면 그리기 (초기에는 체크 미해제 처리)
-            render(true); 
+        // UI 표시 토글 가이드
+        function showHomeScreen(show) {
+            const screen = document.getElementById('homeScreen');
+            if (show) {
+                screen.classList.remove('hidden');
+                screen.classList.add('flex');
+            } else {
+                screen.classList.add('hidden');
+                screen.classList.remove('flex');
+            }
         }
 
-        // 로컬 스토리지에 데이터 영구 저장
-        function saveData() {
-            state.members.sort((a, b) => a.localeCompare(b, 'ko'));
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            render(false); // 체크 상태 유지를 위해 false 전달
+        function updateSyncUI(online) {
+            const dot = document.getElementById('syncStatusDot');
+            const text = document.getElementById('syncStatusText');
+            if (online) {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm animate-pulse";
+                text.innerText = "실시간 클라우드 공유 중";
+            } else {
+                updateOfflineUI();
+            }
         }
 
-        // 전체 참여자 체크 선택/해제 및 그에 따른 컨트롤러 조절기 노출 토글
-        function toggleAllParticipants(check) {
+        function updateOfflineUI() {
+            const dot = document.getElementById('syncStatusDot');
+            const text = document.getElementById('syncStatusText');
+            dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm";
+            text.innerText = "오프라인/로컬 저장 상태";
+            document.getElementById('roomCodeDisplay').innerText = `방코드: 로컬_모드`;
+        }
+
+        // 해시 변경 시 자동 참여 처리
+        window.addEventListener('hashchange', initRoomSync);
+
+        // 연동 시작
+        connectCloud();
+    </script>
+
+    <script>
+        // 전역 함수 정의 (HTML 내 동적 콜백 바인딩용)
+        const DEFAULT_MEMBERS = [
+            "강우주", "강원준", "김찬우", "김현음", "문강민", "변현균", 
+            "오서준", "이강우", "이승준", "이주호", "이하율", "장우진", "지효준"
+        ];
+
+        // 전체 참여자 선택 제어
+        window.toggleAllParticipants = function(check) {
             const checkboxes = document.querySelectorAll('.participant-checkbox');
             checkboxes.forEach(cb => {
                 cb.checked = check;
-                togglePortionControls(cb);
+                window.togglePortionControls(cb);
             });
-        }
+        };
 
-        // 개별 포션 컨트롤러 토글
-        function togglePortionControls(checkbox) {
+        window.togglePortionControls = function(checkbox) {
             const row = checkbox.closest('.participant-row');
             if (!row) return;
             const controls = row.querySelector('.portion-controls');
@@ -371,10 +628,9 @@
                 controls.classList.remove('flex');
                 controls.classList.add('hidden');
             }
-        }
+        };
 
-        // 동반인 수/배수 가중치 조절기 (+/- 터치 대응 스크립트)
-        function adjustPortion(button, change) {
+        window.adjustPortion = function(button, change) {
             const controls = button.closest('.portion-controls');
             const input = controls.querySelector('.participant-count');
             let val = parseInt(input.value) || 1;
@@ -382,10 +638,10 @@
             if (val < 1) val = 1;
             if (val > 20) val = 20; 
             input.value = val;
-        }
+        };
 
         // 멤버 추가 기능
-        function addMember() {
+        window.addMember = function() {
             const input = document.getElementById('memberInput');
             const name = input.value.trim();
 
@@ -394,43 +650,43 @@
                 return;
             }
 
-            if (state.members.includes(name)) {
+            if (window.state.members.includes(name)) {
                 showToastAlert('이미 동일한 이름의 멤버가 존재합니다.');
                 return;
             }
 
-            state.members.push(name);
+            window.state.members.push(name);
             input.value = '';
             input.focus();
-            saveData();
+            window.saveData();
             showToastAlert(`[${name}] 멤버가 추가되었습니다.`);
-        }
+        };
 
         // 멤버 삭제 기능
-        function removeMember(name) {
+        window.removeMember = function(name) {
             showModal(
                 '멤버 삭제',
                 `[${name}]님을 정말로 삭제하시겠습니까? 삭제 시 기존 등록된 지출 내역의 결제자 및 참여자 데이터에서도 자동으로 제외됩니다.`,
                 () => {
-                    state.members = state.members.filter(m => m !== name);
+                    window.state.members = window.state.members.filter(m => m !== name);
 
-                    state.expenses.forEach(exp => {
+                    window.state.expenses.forEach(exp => {
                         if (exp.payer === name) {
-                            exp.payer = state.members[0] || '';
+                            exp.payer = window.state.members[0] || '';
                         }
                         exp.participants = exp.participants.filter(p => p.name !== name);
                     });
 
-                    state.expenses = state.expenses.filter(exp => exp.payer !== '' && exp.participants.length > 0);
+                    window.state.expenses = window.state.expenses.filter(exp => exp.payer !== '' && exp.participants.length > 0);
 
-                    saveData();
+                    window.saveData();
                     showToastAlert(`[${name}] 멤버가 삭제되었습니다.`);
                 }
             );
-        }
+        };
 
-        // 지출 기록 추가
-        function addExpense() {
+        // 지출 등록 추가
+        window.addExpense = function() {
             const titleInput = document.getElementById('expenseTitle');
             const amountInput = document.getElementById('expenseAmount');
             const payerSelect = document.getElementById('expensePayer');
@@ -439,7 +695,7 @@
             const amount = parseInt(amountInput.value);
             const payer = payerSelect.value;
 
-            // 참여자 및 지정 배수(인원수) 수집
+            // 참여자 수집
             const selectedParticipants = [];
             document.querySelectorAll('.participant-row').forEach(row => {
                 const cb = row.querySelector('.participant-checkbox');
@@ -471,7 +727,7 @@
             const now = new Date();
             const timeString = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-            state.expenses.unshift({
+            window.state.expenses.unshift({
                 id: Date.now(),
                 title: title,
                 amount: amount,
@@ -483,227 +739,42 @@
             titleInput.value = '';
             amountInput.value = '';
             
-            // 지출 등록 후에도 선택했던 체크박스 및 인원수가 지워지지 않고 완벽하게 동적 유지됩니다.
-            saveData();
-        }
+            window.saveData();
+        };
 
         // 지출 삭제
-        function removeExpense(id) {
-            state.expenses = state.expenses.filter(e => e.id !== id);
-            saveData();
-        }
+        window.removeExpense = function(id) {
+            window.state.expenses = window.state.expenses.filter(e => e.id !== id);
+            window.saveData();
+        };
 
         // 전체 지출 내역 초기화 처리
         let pendingAction = null;
-        function confirmResetAll() {
+        window.confirmResetAll = function() {
             showModal(
                 '지출 내역 초기화',
                 '현재 활성화된 모든 지출 정보와 체크된 송금 완료 항목이 삭제됩니다. 계속하시겠습니까?',
                 () => {
-                    state.expenses = [];
-                    state.completedTransfers = {};
-                    saveData();
+                    window.state.expenses = [];
+                    window.state.completedTransfers = {};
+                    window.saveData();
                 }
             );
-        }
+        };
 
-        // 특정 송금 완료 체크 상태 토글 기능
-        function toggleTransferStatus(key) {
-            if (state.completedTransfers[key]) {
-                delete state.completedTransfers[key];
-            } else {
-                state.completedTransfers[key] = true;
-            }
-            saveData();
-        }
-
-        // 아카이브 전용 개별 송금 완료 체크 상태 토글 기능
-        function toggleArchiveTransferStatus(archiveId, key) {
-            const arch = state.archives.find(a => a.id === archiveId);
-            if (arch) {
-                if (!arch.completedTransfers) {
-                    arch.completedTransfers = {};
-                }
-                if (arch.completedTransfers[key]) {
-                    delete arch.completedTransfers[key];
-                } else {
-                    arch.completedTransfers[key] = true;
-                }
-                saveData();
-            }
-        }
-
-        // 중간 정산 모달 열기 및 청구서 텍스트 포맷 빌드
-        function openIntermediateSettlement() {
-            if (state.expenses.length === 0) {
-                showToastAlert('중간 정산할 지출 내역이 없습니다.');
-                return;
-            }
-
-            const totalSpent = state.expenses.reduce((sum, item) => sum + item.amount, 0);
-            const transfers = getCalculatedTransfers();
-            const now = new Date();
-            const dateString = `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-            // 카카오톡 공유 포맷 빌드 (1인당 비용 및 결제 명세)
-            let billText = `[✈️ TRAVEL PAY - 중간 정산 청구서]\n`;
-            billText += `일시: ${dateString}\n`;
-            billText += `누적 총 지출: ${totalSpent.toLocaleString()}원\n`;
-            billText += `등록 지출 건수: ${state.expenses.length}건\n`;
-            billText += `------------------------------------\n\n`;
-
-            billText += `📌 지출 요약 리스트:\n`;
-            state.expenses.slice().reverse().forEach((e, idx) => {
-                const totalPortions = e.participants.reduce((sum, p) => sum + p.count, 0);
-                const individualShare = Math.floor(e.amount / totalPortions);
-                const participantLabel = e.participants.map(p => p.count > 1 ? `${p.name}(${p.count}인)` : p.name).join(', ');
-                
-                billText += ` - [${idx + 1}] ${e.title} : ${e.amount.toLocaleString()}원\n`;
-                billText += `   (결제: ${e.payer} | 참여자: ${participantLabel} [총 ${totalPortions}인분] | 1인당: ${individualShare.toLocaleString()}원)\n`;
-            });
-            billText += `\n------------------------------------\n\n`;
-
-            billText += `💬 추천 송금 목록 (받을 사람 계좌로 입금해주세요):\n`;
-            if (transfers.length === 0) {
-                billText += ` - 서로 주고받을 정산금이 존재하지 않습니다. 깔끔합니다!\n`;
-            } else {
-                transfers.forEach(t => {
-                    billText += ` 💸 [${t.from}] ➔ [${t.to}]  :  ${t.amount.toLocaleString()}원\n`;
-                });
-            }
-            billText += `\n함께한 순간은 추억으로, 비용은 공평하게.`;
-
-            document.getElementById('billingTextarea').value = billText;
-
-            const modal = document.getElementById('intermediateModal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
-
-        function closeIntermediateModal() {
-            const modal = document.getElementById('intermediateModal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-
-        // 청구서 텍스트 복사
-        function copyBillingText() {
-            const textarea = document.getElementById('billingTextarea');
-            textarea.select();
-            textarea.setSelectionRange(0, 99999);
-
-            try {
-                const successful = document.execCommand('copy');
-                if (successful) {
-                    showToastAlert('청구서가 클립보드에 복사되었습니다! 카톡방에 공유하세요.');
-                } else {
-                    showToastAlert('복사에 실패했습니다. 직접 선택하여 복사해 주세요.');
-                }
-            } catch (err) {
-                showToastAlert('복사 중 에러가 발생했습니다.');
-            }
-        }
-
-        // 중간 정산 실체 리셋 및 보관 처리
-        function executeIntermediateReset() {
-            const totalSpent = state.expenses.reduce((sum, item) => sum + item.amount, 0);
-            const currentTransfers = getCalculatedTransfers();
-            const now = new Date();
-            const dateString = `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()}`;
-
-            state.archives.unshift({
-                id: Date.now(),
-                title: `[중간 정산] ${now.getMonth() + 1}월 ${now.getDate()}일 정산분`,
-                type: 'intermediate',
-                date: dateString,
-                totalSpent: totalSpent,
-                expenses: [...state.expenses],
-                transfers: currentTransfers,
-                completedTransfers: {...state.completedTransfers}
-            });
-
-            state.expenses = [];
-            state.completedTransfers = {};
-            
-            saveData();
-            closeIntermediateModal();
-            showToastAlert('중간 정산 내역이 보관실에 저장되고 새 정산판이 생성되었습니다!');
-        }
-
-        // 최종 아카이브 이름 입력을 위한 커스텀 모달 노출
-        function openFinalArchivePrompt() {
-            if (state.expenses.length === 0) {
-                showToastAlert('저장할 지출 내역이 없습니다.');
-                return;
-            }
-            document.getElementById('archiveTripNameInput').value = '';
-            const modal = document.getElementById('archivePromptModal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
-
-        function closeFinalArchivePrompt() {
-            const modal = document.getElementById('archivePromptModal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-
-        // 최종 여행 완료 아카이빙 (최종 정산 마감 처리 실행)
-        function executeFinalArchive() {
-            const input = document.getElementById('archiveTripNameInput');
-            const tripName = input.value.trim();
-            const finalName = tripName || '이름 없는 여행';
-            
-            const currentTransfers = getCalculatedTransfers();
-            const totalSpent = state.expenses.reduce((sum, item) => sum + item.amount, 0);
-            
-            const now = new Date();
-            const dateString = `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()}`;
-
-            state.archives.unshift({
-                id: Date.now(),
-                title: `[최종 정산] ${finalName}`,
-                type: 'final',
-                date: dateString,
-                totalSpent: totalSpent,
-                expenses: [...state.expenses],
-                transfers: currentTransfers,
-                completedTransfers: {...state.completedTransfers}
-            });
-
-            state.expenses = [];
-            state.completedTransfers = {};
-            
-            saveData();
-            closeFinalArchivePrompt();
-            showToastAlert('최종 마감 처리되었으며 정산 내역이 영구 보관소로 이동했습니다!');
-        }
-
-        // 아카이브 삭제 기능
-        function deleteArchive(id) {
-            showModal(
-                '보관 기록 삭제',
-                '선택한 정산 기록을 보관소에서 완전히 영구 삭제하시겠습니까?',
-                () => {
-                    state.archives = state.archives.filter(a => a.id !== id);
-                    saveData();
-                }
-            );
-        }
-
-        // 송금 경로 계산기 (참여자와 결제자가 동일하더라도 누락 없이 총합 누적 계산)
-        function getCalculatedTransfers() {
+        // 송금 금액 경로 계산기 (참여자와 결제자가 동일하더라도 누락 없이 총합 누적 계산)
+        window.getCalculatedTransfers = function() {
             const gross = {}; 
             
-            state.members.forEach(m1 => {
+            window.state.members.forEach(m1 => {
                 gross[m1] = {};
-                state.members.forEach(m2 => {
+                window.state.members.forEach(m2 => {
                     gross[m1][m2] = 0;
                 });
             });
 
             // 지출 항목별로 참여자가 결제자에게 갚아야 할 액수를 누적 합산 (가중 포션 적용)
-            state.expenses.forEach(exp => {
+            window.state.expenses.forEach(exp => {
                 const payer = exp.payer;
                 const participants = exp.participants;
                 const amount = exp.amount;
@@ -733,8 +804,8 @@
             });
 
             const transfers = [];
-            state.members.forEach(from => {
-                state.members.forEach(to => {
+            window.state.members.forEach(from => {
+                window.state.members.forEach(to => {
                     const amt = gross[from][to];
                     if (amt > 0) {
                         transfers.push({
@@ -746,7 +817,7 @@
                 });
             });
 
-            // 동일인 송금(예: 오서준 ➔ 오서준, 본인부담분)은 리스트 최하단에 배치하고, 나머지는 가나다 이름순 정렬
+            // 동일인 송금은 리스트 최하단에 배치하고, 나머지는 가나다 이름순 정렬
             transfers.sort((a, b) => {
                 const isSelfA = (a.from === a.to);
                 const isSelfB = (b.from === b.to);
@@ -756,16 +827,173 @@
             });
 
             return transfers;
-        }
+        };
 
-        // UI 렌더링 함수
-        function render(resetSelection = false) {
+        // 중간 정산 모달 열기 및 청구서 텍스트 포맷 빌드
+        window.openIntermediateSettlement = function() {
+            if (window.state.expenses.length === 0) {
+                showToastAlert('중간 정산할 지출 내역이 없습니다.');
+                return;
+            }
+
+            const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
+            const transfers = window.getCalculatedTransfers();
+            const now = new Date();
+            const dateString = `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            let billText = `[✈️ TRAVEL PAY - 중간 정산 청구서]\n`;
+            billText += `일시: ${dateString}\n`;
+            billText += `누적 총 지출: ${totalSpent.toLocaleString()}원\n`;
+            billText += `등록 지출 건수: ${window.state.expenses.length}건\n`;
+            billText += `------------------------------------\n\n`;
+
+            billText += `📌 지출 요약 리스트:\n`;
+            window.state.expenses.slice().reverse().forEach((e, idx) => {
+                const totalPortions = e.participants.reduce((sum, p) => sum + p.count, 0);
+                const individualShare = Math.floor(e.amount / totalPortions);
+                const participantLabel = e.participants.map(p => p.count > 1 ? `${p.name}(${p.count}인)` : p.name).join(', ');
+                
+                billText += ` - [${idx + 1}] ${e.title} : ${e.amount.toLocaleString()}원\n`;
+                billText += `   (결제: ${e.payer} | 참여자: ${participantLabel} [총 ${totalPortions}인분] | 1인당: ${individualShare.toLocaleString()}원)\n`;
+            });
+            billText += `\n------------------------------------\n\n`;
+
+            billText += `💬 추천 송금 목록 (받을 사람 계좌로 입금해주세요):\n`;
+            if (transfers.length === 0) {
+                billText += ` - 서로 주고받을 정산금이 존재하지 않습니다. 깔끔합니다!\n`;
+            } else {
+                transfers.forEach(t => {
+                    billText += ` 💸 [${t.from}] ➔ [${t.to}]  :  ${t.amount.toLocaleString()}원\n`;
+                });
+            }
+            billText += `\n함께한 순간은 추억으로, 비용은 공평하게.`;
+
+            document.getElementById('billingTextarea').value = billText;
+
+            const modal = document.getElementById('intermediateModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeIntermediateModal = function() {
+            const modal = document.getElementById('intermediateModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        // 청구서 텍스트 복사
+        window.copyBillingText = function() {
+            const textarea = document.getElementById('billingTextarea');
+            textarea.select();
+            textarea.setSelectionRange(0, 99999);
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToastAlert('청구서가 클립보드에 복사되었습니다! 카톡방에 공유하세요.');
+                } else {
+                    showToastAlert('복사에 실패했습니다. 직접 선택하여 복사해 주세요.');
+                }
+            } catch (err) {
+                showToastAlert('복사 중 에러가 발생했습니다.');
+            }
+        };
+
+        // 중간 정산 실체 리셋 및 보관 처리
+        window.executeIntermediateReset = function() {
+            const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
+            const currentTransfers = window.getCalculatedTransfers();
+            const now = new Date();
+            const dateString = `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()}`;
+
+            window.state.archives.unshift({
+                id: Date.now(),
+                title: `[중간 정산] ${now.getMonth() + 1}월 ${now.getDate()}일 정산분`,
+                type: 'intermediate',
+                date: dateString,
+                totalSpent: totalSpent,
+                expenses: [...window.state.expenses],
+                transfers: currentTransfers,
+                completedTransfers: {...window.state.completedTransfers}
+            });
+
+            window.state.expenses = [];
+            window.state.completedTransfers = {};
+            
+            window.saveData();
+            window.closeIntermediateModal();
+            showToastAlert('중간 정산 내역이 보관실에 저장되고 새 정산판이 생성되었습니다!');
+        };
+
+        // 최종 아카이브 이름 입력을 위한 커스텀 모달 노출
+        window.openFinalArchivePrompt = function() {
+            if (window.state.expenses.length === 0) {
+                showToastAlert('저장할 지출 내역이 없습니다.');
+                return;
+            }
+            document.getElementById('archiveTripNameInput').value = '';
+            const modal = document.getElementById('archivePromptModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeFinalArchivePrompt = function() {
+            const modal = document.getElementById('archivePromptModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        // 최종 정산 마감
+        window.executeFinalArchive = function() {
+            const input = document.getElementById('archiveTripNameInput');
+            const tripName = input.value.trim();
+            const finalName = tripName || '이름 없는 여행';
+            
+            const currentTransfers = window.getCalculatedTransfers();
+            const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
+            
+            const now = new Date();
+            const dateString = `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()}`;
+
+            window.state.archives.unshift({
+                id: Date.now(),
+                title: `[최종 정산] ${finalName}`,
+                type: 'final',
+                date: dateString,
+                totalSpent: totalSpent,
+                expenses: [...window.state.expenses],
+                transfers: currentTransfers,
+                completedTransfers: {...window.state.completedTransfers}
+            });
+
+            window.state.expenses = [];
+            window.state.completedTransfers = {};
+            
+            window.saveData();
+            window.closeFinalArchivePrompt();
+            showToastAlert('최종 마감 처리되었으며 정산 내역이 영구 보관소로 이동했습니다!');
+        };
+
+        // 아카이브 삭제 기능
+        window.deleteArchive = function(id) {
+            showModal(
+                '보관 기록 삭제',
+                '선택한 정산 기록을 보관소에서 완전히 영구 삭제하시겠습니까?',
+                () => {
+                    window.state.archives = window.state.archives.filter(a => a.id !== id);
+                    window.saveData();
+                }
+            );
+        };
+
+        // 화면 렌더링 설계
+        window.render = function(resetSelection = false) {
             // 1. 인원 칩셋 리스트 생성 (가나다 순으로 표시)
             const memberListEl = document.getElementById('memberList');
-            if (state.members.length === 0) {
+            if (window.state.members.length === 0) {
                 memberListEl.innerHTML = '<span class="text-slate-400 text-xs w-full text-center py-2">등록된 인원이 없습니다. 멤버를 추가해보세요!</span>';
             } else {
-                memberListEl.innerHTML = state.members.map((m, i) => `
+                memberListEl.innerHTML = window.state.members.map((m, i) => `
                     <div class="bg-slate-100 border border-slate-200 pl-3 pr-1.5 py-0.5 rounded-full text-[11px] font-semibold flex items-center gap-1 shadow-sm shrink-0">
                         <span class="text-slate-500 font-bold">${i + 1}.</span>
                         <span class="text-slate-700 truncate max-w-[60px]">${m}</span>
@@ -779,19 +1007,19 @@
             // 2. 지출 폼 내의 "결제자" 셀렉트 박스 업데이트 (기본값: 오서준 세팅)
             const payerSelect = document.getElementById('expensePayer');
             const previousPayer = payerSelect.value;
-            payerSelect.innerHTML = state.members.map(m => `
+            payerSelect.innerHTML = window.state.members.map(m => `
                 <option value="${m}">${m}</option>
             `).join('');
 
-            if (previousPayer && state.members.includes(previousPayer)) {
+            if (previousPayer && window.state.members.includes(previousPayer)) {
                 payerSelect.value = previousPayer;
-            } else if (state.members.includes("오서준")) {
+            } else if (window.state.members.includes("오서준")) {
                 payerSelect.value = "오서준";
-            } else if (state.members.length > 0) {
-                payerSelect.value = state.members[0];
+            } else if (window.state.members.length > 0) {
+                payerSelect.value = window.state.members[0];
             }
 
-            // 3. 지출 폼 내의 "참여자" 체크박스 및 포션 조절기 영역 업데이트 (모바일 최적화 다열 레이아웃)
+            // 3. 지출 폼 참여자 및 포션 조절기 영역 업데이트
             const pSelector = document.getElementById('participantsSelector');
             const checkedStates = {};
             const countStates = {};
@@ -809,7 +1037,7 @@
                 });
             }
 
-            pSelector.innerHTML = state.members.map((m) => {
+            pSelector.innerHTML = window.state.members.map((m) => {
                 const isChecked = checkedStates[m] !== undefined ? checkedStates[m] : false;
                 const countVal = countStates[m] !== undefined ? countStates[m] : 1;
                 
@@ -830,7 +1058,7 @@
 
             // 4. 지출 상세 내역 리스트 렌더링
             const historyListEl = document.getElementById('expenseHistory');
-            if (state.expenses.length === 0) {
+            if (window.state.expenses.length === 0) {
                 historyListEl.innerHTML = `
                     <div class="p-10 text-center text-slate-400 text-sm">
                         <i class="fa-solid fa-folder-open text-2xl mb-2 block text-slate-300"></i>
@@ -838,13 +1066,13 @@
                     </div>`;
                 document.getElementById('lastUpdated').innerText = '최근 업데이트 없음';
             } else {
-                historyListEl.innerHTML = state.expenses.map(e => {
+                historyListEl.innerHTML = window.state.expenses.map(e => {
                     const totalPortions = e.participants.reduce((sum, p) => sum + p.count, 0);
                     const individualShare = totalPortions > 0 ? Math.floor(e.amount / totalPortions) : 0;
                     const participantLabels = e.participants.map(p => p.count > 1 ? `${p.name}(${p.count}인)` : p.name).join(', ');
 
                     return `
-                        <div class="px-4 py-3.5 md:px-5 flex flex-col hover:bg-slate-50/80 transition-colors">
+                        <div class="px-4 py-3.5 flex flex-col hover:bg-slate-50/80 transition-colors">
                             <div class="flex justify-between items-start">
                                 <div class="space-y-1.5 flex-1 min-w-0 pr-3">
                                     <div class="flex flex-wrap items-center gap-1.5">
@@ -872,39 +1100,39 @@
                         </div>
                     `;
                 }).join('');
-                document.getElementById('lastUpdated').innerText = `최근 업데이트: ${state.expenses[0].time}`;
+                document.getElementById('lastUpdated').innerText = `최근 업데이트: ${window.state.expenses[0].time}`;
             }
 
             // 누적 총 지출 합산 및 상단 카드 갱신
-            const totalSpent = state.expenses.reduce((sum, item) => sum + item.amount, 0);
+            const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
             document.getElementById('totalSpentAmount').innerText = `${totalSpent.toLocaleString()} 원`;
-            document.getElementById('statSummaryText').innerText = `현재 누적 지출 횟수: ${state.expenses.length}회`;
-            document.getElementById('memberCount').innerText = `${state.members.length}명`;
+            document.getElementById('statSummaryText').innerText = `현재 누적 지출 횟수: ${window.state.expenses.length}회`;
+            document.getElementById('memberCount').innerText = `${window.state.members.length}명`;
 
-            // 5. 송금 가이드 리스트 UI 구성 (동일인 포함, 본인부담분 최하단 정렬 완비)
-            const transfers = getCalculatedTransfers();
+            // 5. 송금 최적화 기반 추천 송금 가이드 UI 구성
+            const transfers = window.getCalculatedTransfers();
             const guideListEl = document.getElementById('transferGuideList');
             
             if (transfers.length === 0) {
-                guideListEl.innerHTML = `<p class="text-xs text-slate-500 py-1"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> 주고받을 송금 정보가 없습니다.</p>`;
+                guideListEl.innerHTML = `<p class="text-xs text-slate-500 py-1"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> 현재 지출 금액들이 고르게 정산되었습니다. 주고받을 송금 정보가 없습니다.</p>`;
             } else {
                 guideListEl.innerHTML = transfers.map(t => {
                     const uniqueTransferKey = `${t.from}-${t.to}-${t.amount}`;
-                    const isDone = !!state.completedTransfers[uniqueTransferKey];
+                    const isDone = !!window.state.completedTransfers[uniqueTransferKey];
                     const isSelf = (t.from === t.to);
 
                     return `
-                        <div class="flex items-center justify-between bg-white px-3 py-2.5 rounded-xl border border-slate-200/50 text-[11px] md:text-xs shadow-sm transition-all duration-300 ${isDone ? 'opacity-50 bg-slate-50/50' : ''}">
-                            <div class="flex items-center gap-1.5 min-w-0 pr-2">
-                                <span class="font-bold px-1.5 py-0.5 rounded-md truncate max-w-[60px] ${isDone ? 'bg-slate-200 text-slate-500 line-through' : (isSelf ? 'bg-slate-100 text-slate-600' : 'bg-rose-50 text-rose-500')}">${t.from}</span>
-                                <span class="text-slate-400 text-[9px] shrink-0"><i class="fa-solid fa-arrow-right"></i></span>
-                                <span class="font-bold px-1.5 py-0.5 rounded-md truncate max-w-[60px] ${isDone ? 'bg-slate-200 text-slate-500 line-through' : 'bg-emerald-50 text-emerald-600'}">${t.to}</span>
-                                ${isSelf ? `<span class="bg-slate-100 text-slate-700 border border-slate-200 text-[9px] px-1 rounded font-normal shrink-0 scale-90">본인</span>` : ''}
+                        <div class="flex items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-indigo-100/30 text-xs shadow-sm transition-all duration-300 ${isDone ? 'opacity-50 bg-slate-50/50' : ''}">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500 line-through' : (isSelf ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-500')}">${t.from}</span>
+                                <span class="text-slate-400 font-medium"><i class="fa-solid fa-arrow-right"></i></span>
+                                <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500 line-through' : 'bg-emerald-50 text-emerald-600'}">${t.to}</span>
+                                ${isSelf ? `<span class="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] scale-95 px-1.5 py-0.2 rounded font-normal">본인 부담분</span>` : ''}
                             </div>
-                            <div class="flex items-center gap-2 shrink-0">
-                                <span class="font-extrabold text-xs md:text-sm ${isDone ? 'text-slate-400 line-through' : 'text-slate-800'}">${t.amount.toLocaleString()}원</span>
-                                <button onclick="toggleTransferStatus('${uniqueTransferKey}')" class="px-2 py-1 rounded-md text-[10px] font-bold transition-all shrink-0 ${isDone ? 'bg-slate-200 text-slate-600' : 'bg-slate-800 text-white active:bg-emerald-500'}">
-                                    ${isDone ? '<i class="fa-solid fa-check"></i>' : (isSelf ? '확인' : '완료')}
+                            <div class="flex items-center gap-2.5">
+                                <span class="font-extrabold text-sm ${isDone ? 'text-slate-400 line-through' : 'text-indigo-700'}">${t.amount.toLocaleString()}원</span>
+                                <button onclick="toggleTransferStatus('${uniqueTransferKey}')" class="px-3 py-1.5 rounded-lg text-[11px] md:text-xs font-bold transition-all ${isDone ? 'bg-slate-200 text-slate-600 hover:bg-indigo-100 hover:text-indigo-700' : 'bg-indigo-600 text-white hover:bg-emerald-500 hover:shadow-sm'} flex items-center gap-1">
+                                    ${isDone ? '<i class="fa-solid fa-check text-[10px]"></i> 완료됨' : (isSelf ? '<i class="fa-solid fa-circle-check text-[10px]"></i> 확인 완료' : '<i class="fa-solid fa-paper-plane text-[10px]"></i> 송금 완료')}
                                 </button>
                             </div>
                         </div>
@@ -912,16 +1140,16 @@
                 }).join('');
             }
 
-            // 6. 아카이브 기록 보관소 렌더링
+            // 6. 아카이브 기록 보관소 렌더링 (파스텔 세이지 그린 테마)
             const archiveContainer = document.getElementById('archiveContainer');
-            if (state.archives.length === 0) {
+            if (window.state.archives.length === 0) {
                 archiveContainer.innerHTML = `
-                    <div class="p-6 text-center text-slate-400 border border-dashed border-emerald-200 rounded-2xl bg-white/40">
-                        <i class="fa-solid fa-folder-closed text-2xl mb-1.5 text-emerald-300 block"></i>
-                        보관된 과거 정산 히스토리가 없습니다.
+                    <div class="p-8 text-center text-slate-400 border border-dashed border-emerald-200 rounded-2xl bg-white/40">
+                        <i class="fa-solid fa-folder-closed text-3xl mb-2 text-emerald-300 block"></i>
+                        아직 보관된 과거 정산 히스토리가 없습니다.
                     </div>`;
             } else {
-                archiveContainer.innerHTML = state.archives.map((arch) => {
+                archiveContainer.innerHTML = window.state.archives.map((arch) => {
                     const totalTransferCount = arch.transfers.length;
                     
                     let completedCount = 0;
@@ -934,10 +1162,9 @@
 
                     const isIntermediate = arch.type === 'intermediate';
 
-                    // 보관소 전용 송금 내역 2단 그리드
                     let transfersDetailHtml = '';
                     if (arch.transfers.length === 0) {
-                        transfersDetailHtml = `<p class="text-slate-400 text-xs italic p-2">주고받을 정산 내역이 없습니다.</p>`;
+                        transfersDetailHtml = `<p class="text-slate-400 text-xs italic">주고받을 정산 내역이 없는 깔끔한 상태입니다.</p>`;
                     } else {
                         transfersDetailHtml = arch.transfers.map(t => {
                             const uniqueKey = `${t.from}-${t.to}-${t.amount}`;
@@ -945,24 +1172,26 @@
                             const isSelf = (t.from === t.to);
                             
                             return `
-                                <div class="flex flex-col bg-white p-3.5 rounded-xl border border-emerald-100 text-xs gap-2 shadow-sm">
-                                    <div class="flex justify-between items-start gap-1">
-                                        <div class="flex items-center gap-1.5 flex-wrap min-w-0">
-                                            <span class="font-bold text-slate-700 text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60 truncate max-w-[60px]">${t.from}</span>
-                                            <span class="text-slate-400 text-[9px]"><i class="fa-solid fa-arrow-right"></i></span>
-                                            <span class="font-bold text-slate-700 text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60 truncate max-w-[60px]">${t.to}</span>
-                                            ${isSelf ? `<span class="bg-slate-100 text-slate-500 border border-slate-200 text-[8px] px-1 rounded shrink-0 scale-90">본인</span>` : ''}
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-xl border border-emerald-100 text-xs gap-3 shadow-sm hover:shadow-md transition-all">
+                                    <div class="flex flex-col gap-1.5 flex-1 min-w-0">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="font-bold text-slate-700 text-xs bg-slate-100 px-2.5 py-1 rounded-md shrink-0 border border-slate-200/60">${t.from}</span>
+                                            <span class="text-slate-400 text-[10px]"><i class="fa-solid fa-arrow-right"></i></span>
+                                            <span class="font-bold text-indigo-700 text-xs bg-indigo-50 px-2.5 py-1 rounded-md shrink-0 border border-indigo-100/40">${t.to}</span>
+                                            ${isSelf ? `<span class="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[9px] px-1.5 py-0.1 rounded font-normal shrink-0">본인</span>` : ''}
                                         </div>
-                                        <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="text-[9px] bg-slate-50 hover:bg-slate-100 active:scale-95 px-1.5 py-0.5 rounded text-slate-500 transition-all font-semibold border border-slate-200 shrink-0">
-                                            변경
-                                        </button>
+                                        <div class="mt-1">
+                                            <span class="text-indigo-600 text-base font-extrabold tracking-tight">${t.amount.toLocaleString()} 원</span>
+                                        </div>
                                     </div>
-                                    <div class="flex justify-between items-center mt-0.5 gap-2">
-                                        <span class="text-slate-800 text-sm font-extrabold tracking-tight">${t.amount.toLocaleString()} 원</span>
+                                    <div class="flex items-center gap-2.5 self-end sm:self-center shrink-0">
                                         ${isDone 
-                                            ? `<span class="text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0"><i class="fa-solid fa-circle-check"></i> 완료</span>`
-                                            : `<span class="text-amber-700 bg-amber-50 border border-amber-200/60 px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0"><i class="fa-solid fa-clock"></i> 대기</span>`
+                                            ? `<span class="text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-circle-check"></i> ${isSelf ? '확인 완료' : '송금 완료'}</span>`
+                                            : `<span class="text-amber-700 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-clock"></i> ${isSelf ? '미확인' : '미송금'}</span>`
                                         }
+                                        <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="px-3 py-1.5 rounded-lg text-[11px] md:text-xs font-bold transition-all bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 border border-slate-200 flex items-center gap-1.5 shrink-0">
+                                            <i class="fa-solid fa-arrows-rotate text-[10px] text-slate-500"></i> 상태 변경
+                                        </button>
                                     </div>
                                 </div>
                             `;
@@ -970,7 +1199,7 @@
                     }
 
                     return `
-                        <div class="bg-white border ${isIntermediate ? 'border-amber-200/80' : 'border-emerald-200/80'} p-4 md:p-5 rounded-2xl space-y-3.5 shadow-sm">
+                        <div class="bg-white border ${isIntermediate ? 'border-amber-200/80' : 'border-emerald-200/80'} p-4 rounded-2xl space-y-3.5 shadow-sm">
                             <div class="flex justify-between items-start gap-2">
                                 <div>
                                     <h3 class="text-sm md:text-md font-extrabold ${isIntermediate ? 'text-amber-800' : 'text-emerald-800'} flex items-center gap-1.5 truncate max-w-[200px] sm:max-w-sm">
@@ -988,7 +1217,6 @@
                                 </div>
                             </div>
 
-                            <!-- 아카이브 송금 달성도 상태 바 -->
                             <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[11px]">
                                 <div class="flex justify-between items-center mb-1 text-slate-600 font-bold">
                                     <span>송금 완료율 (${completedCount}/${totalTransferCount})</span>
@@ -999,7 +1227,6 @@
                                 </div>
                             </div>
 
-                            <!-- 아카이브 상세 송금 현황 (모바일 가독성을 극대화한 넉넉한 2단 격리 그리드) -->
                             <div class="space-y-2 pt-3 border-t border-slate-100">
                                 <p class="text-[11px] text-slate-600 font-semibold flex items-center gap-1.5">
                                     <i class="fa-solid fa-list-check text-slate-500"></i> 상세 내역 및 정산 현황
@@ -1012,10 +1239,10 @@
                     `;
                 }).join('');
             }
-        }
+        };
 
-        // 인앱 알림용 토스트 얼럿
-        function showToastAlert(msg) {
+        // 토스트 알림 헬퍼
+        window.showToastAlert = function(msg) {
             const toast = document.getElementById('toastAlert');
             const toastMsg = document.getElementById('toastMessage');
             toastMsg.innerText = msg;
@@ -1027,29 +1254,25 @@
                 toast.classList.add('translate-y-20', 'opacity-0');
                 toast.classList.remove('translate-y-0', 'opacity-100');
             }, 3000);
-        }
+        };
 
-        // 컨펌용 모달 제어
-        function showModal(title, message, confirmCallback) {
+        // 모달 관리 헬퍼
+        window.showModal = function(title, message, confirmCallback) {
             document.getElementById('modalTitle').innerText = title;
             document.getElementById('modalMessage').innerText = message;
             document.getElementById('confirmModal').classList.remove('hidden');
             document.getElementById('confirmModal').classList.add('flex');
             pendingAction = confirmCallback;
-        }
+        };
 
-        // 모달 닫기
-        function closeModal(isConfirmed) {
+        window.closeModal = function(isConfirmed) {
             document.getElementById('confirmModal').classList.add('hidden');
             document.getElementById('confirmModal').classList.remove('flex');
             if (isConfirmed && pendingAction) {
                 pendingAction();
             }
             pendingAction = null;
-        }
-
-        // 로드 시 초기 기동
-        loadData();
+        };
     </script>
 </body>
 </html>
