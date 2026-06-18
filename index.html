@@ -40,16 +40,16 @@
                 </p>
             </div>
 
-            <!-- 정산 내용 입력 상자 (대회 대신 여행 명칭으로 예시 변경) -->
+            <!-- 정산 내용 입력 상자 (제천 대회 기반 인터랙션 제공) -->
             <div class="space-y-1.5 pt-1 text-left">
                 <label class="text-[11px] font-bold text-slate-500 flex items-center gap-1">
-                    <i class="fa-solid fa-pen-to-square"></i> 이번 여행 이름 / 정산 제목
+                    <i class="fa-solid fa-pen-to-square"></i> 이번 대회 이름 / 정산 제목
                 </label>
                 <input type="text" id="initialTripTitle" 
-                       value="2026 제주도 여행 (일정 입력)" 
-                       placeholder="예: 2026 제주도 여행 (일정 입력)" 
-                       onfocus="if(this.value === '2026 제주도 여행 (일정 입력)') { this.value = '2026 제주도 여행 '; }" 
-                       onblur="if(this.value.trim() === '2026 제주도 여행' || this.value.trim() === '') { this.value = '2026 제주도 여행 (일정 입력)'; }"
+                       value="2026 제천 대회 (일정 입력)" 
+                       placeholder="예: 2026 제천 대회 (일정 입력)" 
+                       onfocus="if(this.value === '2026 제천 대회 (일정 입력)') { this.value = '2026 제천 대회 '; }" 
+                       onblur="if(this.value.trim() === '2026 제천 대회' || this.value.trim() === '') { this.value = '2026 제천 대회 (일정 입력)'; }"
                        class="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none text-sm text-center font-semibold focus:border-slate-400 focus:ring-1 focus:ring-slate-400 transition-all">
             </div>
 
@@ -114,11 +114,11 @@
         <!-- 왼쪽 사이드바: 입력 폼 (lg: 5칸) -->
         <div class="lg:col-span-5 space-y-4">
             
-            <!-- 멤버 정보 -->
+            <!-- 멤버 정보 및 계좌 설정 -->
             <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-sm font-bold flex items-center gap-1.5 text-slate-700">
-                        <i class="fa-solid fa-user-group text-slate-500"></i> 정산 멤버 관리
+                        <i class="fa-solid fa-user-group text-slate-500"></i> 정산 멤버 및 계좌 관리
                     </h2>
                     <span id="memberCount" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-semibold">0명</span>
                 </div>
@@ -132,8 +132,37 @@
                 </div>
                 
                 <!-- 멤버 목록 칩 영역 -->
-                <div id="memberList" class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1 smooth-scroll">
+                <div id="memberList" class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1 smooth-scroll mb-4">
                     <!-- 스크립트에서 자동 렌더링 -->
+                </div>
+
+                <!-- 송금받을 계좌 및 예금주 정보 설정 (요청된 예금주 입력란 추가 완료) -->
+                <div class="border-t border-slate-100 pt-3 space-y-2">
+                    <label class="text-xs font-bold text-slate-600 flex items-center gap-1">
+                        <i class="fa-solid fa-credit-card text-slate-400"></i> 정산금 수령 계좌 설정
+                    </label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <select id="bankName" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:ring-1 focus:ring-slate-400 bg-white">
+                            <option value="신한은행">신한은행</option>
+                            <option value="국민은행">국민은행</option>
+                            <option value="우리은행">우리은행</option>
+                            <option value="하나은행">하나은행</option>
+                            <option value="카카오뱅크" selected>카카오뱅크</option>
+                            <option value="토스뱅크">토스뱅크</option>
+                            <option value="농협은행">농협</option>
+                            <option value="기업은행">기업은행</option>
+                            <option value="새마을금고">새마을금고</option>
+                            <option value="우체국">우체국</option>
+                        </select>
+                        <input type="text" id="accountHolder" placeholder="예금주 (수령인 실명)" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:ring-1 focus:ring-slate-400 transition-all">
+                    </div>
+                    <input type="text" id="accountNumber" placeholder="계좌번호 입력 (- 포함)" class="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:ring-1 focus:ring-slate-400 transition-all">
+                    <button onclick="saveAccountInfo()" class="w-full bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 py-1.5 rounded-lg text-xs font-bold transition-all">
+                        계좌 정보 저장하기
+                    </button>
+                    <p id="savedAccountDisplay" class="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100/50 hidden">
+                        <!-- 저장된 계좌 실시간 출력 -->
+                    </p>
                 </div>
             </section>
 
@@ -193,7 +222,7 @@
                     <i class="fa-solid fa-calculator"></i>
                 </div>
                 <!-- 여기에 정산 내용 제목 매칭 표시 -->
-                <p class="text-slate-300 text-xs font-medium"><span id="spentCardTitle" class="text-amber-400 font-bold">우리들의 여행 정산</span> 누적 총 지출액</p>
+                <p class="text-slate-300 text-xs font-medium"><span id="spentCardTitle" class="text-amber-400 font-bold">우리들의 정산</span> 누적 총 지출액</p>
                 <h3 class="text-2xl md:text-3xl font-extrabold mt-1 mb-4 tracking-tight" id="totalSpentAmount">0 원</h3>
                 
                 <div class="flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
@@ -225,11 +254,11 @@
                 </div>
             </section>
 
-            <!-- 2. 추천 송금 가이드 -->
+            <!-- 2. 최종 정산 내역 및 추천 송금 가이드 -->
             <section class="bg-slate-100/50 border border-slate-200/50 p-4 rounded-2xl">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-xs md:text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                        <i class="fa-solid fa-paper-plane text-slate-500"></i> 추천 송금 가이드 <span class="text-[9px] md:text-[10px] font-normal text-slate-500">(완료 후 체크해주세요)</span>
+                        <i class="fa-solid fa-paper-plane text-slate-500"></i> 📋 최종 정산 내역 <span class="text-[9px] md:text-[10px] font-normal text-slate-500">(송금 후 체크해주세요)</span>
                     </h2>
                 </div>
                 <div id="transferGuideList" class="space-y-2 max-h-[250px] overflow-y-auto smooth-scroll pr-1">
@@ -243,7 +272,7 @@
     <section class="max-w-5xl mx-auto px-3 mt-6">
         <div class="bg-emerald-50/50 text-slate-800 p-4 md:p-6 rounded-3xl shadow-sm border border-emerald-100/80">
             <h2 class="text-base font-bold mb-3 flex items-center gap-2 text-emerald-800">
-                <i class="fa-solid fa-box-archive text-emerald-500"></i> 여행 정산 기록 보관소 (중간/최종 아카이브)
+                <i class="fa-solid fa-box-archive text-emerald-500"></i> 대회 정산 기록 보관소 (중간/최종 아카이브)
             </h2>
             <div id="archiveContainer" class="space-y-4">
                 <!-- 아카이브 데이터 동적 로딩 -->
@@ -286,8 +315,8 @@
             <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
                 <i class="fa-solid fa-box-archive text-emerald-500"></i> 최종 정산 마감 및 보관
             </h3>
-            <p class="text-xs text-slate-500">이번 여행의 이름을 입력해 주세요. 누적 지출와 송금 가이드 완료 정보가 아카이브 보관실로 이동합니다.</p>
-            <input type="text" id="archiveTripNameInput" placeholder="예: 2026 제주도 여행" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 outline-none text-sm">
+            <p class="text-xs text-slate-500">이번 대회의 이름을 입력해 주세요. 누적 지출와 송금 가이드 완료 정보가 아카이브 보관실로 이동합니다.</p>
+            <input type="text" id="archiveTripNameInput" placeholder="예: 2026 제천 대회" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 outline-none text-sm">
             <div class="flex justify-end gap-2.5 pt-1">
                 <button onclick="closeFinalArchivePrompt()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-semibold rounded-lg transition-colors">취소</button>
                 <button onclick="executeFinalArchive()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-semibold rounded-lg transition-colors">마감 및 저장</button>
@@ -321,11 +350,14 @@
         ];
 
         window.state = {
-            tripTitle: "2026 제주도 여행",
+            tripTitle: "2026 제천 대회",
             members: [...DEFAULT_MEMBERS],
             expenses: [],
             completedTransfers: {},
-            archives: []
+            archives: [],
+            bankName: "카카오뱅크",
+            accountNumber: "",
+            accountHolder: ""
         };
 
         window.roomId = '';
@@ -344,19 +376,33 @@
                         console.error("로컬 백업 로드 실패:", e);
                     }
                 } else {
-                    const fallbackTitle = window.pendingTripTitle || '2026 제주도 여행';
+                    const fallbackTitle = window.pendingTripTitle || '2026 제천 대회';
                     window.state = {
                         tripTitle: fallbackTitle,
                         members: [...DEFAULT_MEMBERS],
                         expenses: [],
                         completedTransfers: {},
-                        archives: []
+                        archives: [],
+                        bankName: "카카오뱅크",
+                        accountNumber: "",
+                        accountHolder: ""
                     };
-                    delete window.pendingTripTitle;
                 }
                 document.getElementById('roomCodeDisplay').innerText = `방코드: ${window.roomId}`;
                 document.getElementById('homeScreen').classList.add('hidden');
                 document.getElementById('homeScreen').classList.remove('flex');
+                
+                // 로컬 복구시 UI에 설정값 기입
+                if (document.getElementById('bankName')) {
+                    document.getElementById('bankName').value = window.state.bankName || '카카오뱅크';
+                }
+                if (document.getElementById('accountNumber')) {
+                    document.getElementById('accountNumber').value = window.state.accountNumber || '';
+                }
+                if (document.getElementById('accountHolder')) {
+                    document.getElementById('accountHolder').value = window.state.accountHolder || '';
+                }
+                
                 window.render(true);
             } else {
                 document.getElementById('homeScreen').classList.remove('hidden');
@@ -377,8 +423,8 @@
             let tripTitle = titleInput ? titleInput.value.trim() : '';
 
             // 만약 기본값 상태 그대로 개설한다면, "(일정 입력)" 텍스트가 남지 않도록 보정
-            if (tripTitle === '2026 제주도 여행 (일정 입력)') {
-                tripTitle = '2026 제주도 여행';
+            if (tripTitle === '2026 제천 대회 (일정 입력)') {
+                tripTitle = '2026 제천 대회';
             }
 
             const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -388,7 +434,7 @@
             }
 
             // 해시 변경 시점에 동기화되도록 대기 변수에 정산명을 임시 세팅
-            window.pendingTripTitle = tripTitle || '2026 제주도 여행';
+            window.pendingTripTitle = tripTitle || '2026 제천 대회';
 
             window.location.hash = newCode;
             window.loadLocalBackup();
@@ -493,19 +539,36 @@
             unsubscribeDoc = onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    window.state.tripTitle = data.tripTitle || '2026 제주도 여행';
+                    window.state.tripTitle = data.tripTitle || '2026 제천 대회';
                     window.state.members = data.members || [...DEFAULT_MEMBERS];
                     window.state.expenses = data.expenses || [];
                     window.state.completedTransfers = data.completedTransfers || {};
                     window.state.archives = data.archives || [];
+                    window.state.bankName = data.bankName || '카카오뱅크';
+                    window.state.accountNumber = data.accountNumber || '';
+                    window.state.accountHolder = data.accountHolder || '';
+                    
+                    if (document.getElementById('bankName')) {
+                        document.getElementById('bankName').value = window.state.bankName;
+                    }
+                    if (document.getElementById('accountNumber')) {
+                        document.getElementById('accountNumber').value = window.state.accountNumber;
+                    }
+                    if (document.getElementById('accountHolder')) {
+                        document.getElementById('accountHolder').value = window.state.accountHolder;
+                    }
                 } else {
-                    const fallbackTitle = window.pendingTripTitle || '2026 제주도 여행';
+                    // 데이터 생성 경쟁 레이스 컨디션 방지 적용
+                    const fallbackTitle = window.state.tripTitle || window.pendingTripTitle || '2026 제천 대회';
                     window.state = {
                         tripTitle: fallbackTitle,
                         members: [...DEFAULT_MEMBERS],
                         expenses: [],
                         completedTransfers: {},
-                        archives: []
+                        archives: [],
+                        bankName: window.state.bankName || "카카오뱅크",
+                        accountNumber: window.state.accountNumber || "",
+                        accountHolder: window.state.accountHolder || ""
                     };
                     delete window.pendingTripTitle;
                     setDoc(docRef, window.state);
@@ -524,7 +587,7 @@
                 try {
                     await setDoc(docRef, window.state);
                 } catch (e) {
-                    console.error("클라우드 업로드 실패:", e);
+                    console.error("클라우드 데이터 갱신 실패:", e);
                 }
             } else {
                 window.saveLocalBackup();
@@ -538,13 +601,26 @@
     <!-- 3단계: 정산 어플리케이션 상세 렌더링 및 비즈니스 연산 로직 -->
     <script>
         
+        // 계좌 및 수령 예금주 정보 저장하기
+        window.saveAccountInfo = function() {
+            const bank = document.getElementById('bankName').value;
+            const acct = document.getElementById('accountNumber').value.trim();
+            const holder = document.getElementById('accountHolder').value.trim();
+            
+            window.state.bankName = bank;
+            window.state.accountNumber = acct;
+            window.state.accountHolder = holder;
+            window.saveData();
+            showToastAlert("총무 계좌 및 예금주 정보가 저장 및 동기화되었습니다!");
+        };
+
         // 정산제목 수정용 모달/창 유틸리티
         window.editTripTitle = function() {
-            const currentTitle = window.state.tripTitle || '2026 제주도 여행';
-            const newTitle = prompt('수정할 정산의 명칭이나 여행 제목을 입력하세요:', currentTitle);
+            const currentTitle = window.state.tripTitle || '2026 제천 대회';
+            const newTitle = prompt('수정할 정산의 명칭이나 대회 제목을 입력하세요:', currentTitle);
             if (newTitle !== null) {
                 const trimmed = newTitle.trim();
-                window.state.tripTitle = trimmed || '2026 제주도 여행';
+                window.state.tripTitle = trimmed || '2026 제천 대회';
                 window.saveData();
                 showToastAlert('정산 명칭이 성공적으로 변경되었습니다.');
             }
@@ -697,6 +773,7 @@
             );
         };
 
+        // 송금 최적화 및 원단위 완벽 일치/반올림 정합성 연산 알고리즘
         window.getCalculatedTransfers = function() {
             const gross = {}; 
             
@@ -715,18 +792,11 @@
                 if (participants && participants.length > 0) {
                     const totalPortions = participants.reduce((sum, p) => sum + p.count, 0);
                     if (totalPortions > 0) {
-                        const splitAmount = Math.floor(amount / totalPortions);
-                        const remainder = amount % totalPortions;
+                        // 원단위 정합성을 위한 원단위 반올림(Math.round) 수행
+                        const splitAmount = Math.round(amount / totalPortions);
 
-                        let portionIndex = 0;
                         participants.forEach(p => {
-                            let share = splitAmount * p.count;
-                            for (let k = 0; k < p.count; k++) {
-                                if (portionIndex < remainder) {
-                                    share += 1;
-                                }
-                                portionIndex++;
-                            }
+                            const share = splitAmount * p.count;
                             if (gross[p.name] && gross[p.name][payer] !== undefined) {
                                 gross[p.name][payer] += share;
                             }
@@ -735,12 +805,12 @@
                 }
             });
 
-            const transfers = [];
+            const rawTransfers = [];
             window.state.members.forEach(from => {
                 window.state.members.forEach(to => {
                     const amt = gross[from][to];
                     if (amt > 0) {
-                        transfers.push({
+                        rawTransfers.push({
                             from: from,
                             to: to,
                             amount: amt
@@ -749,12 +819,52 @@
                 });
             });
 
+            // 상호 채무 상쇄 프로세스 가동
+            const balances = {};
+            window.state.members.forEach(m => { balances[m] = 0; });
+            
+            rawTransfers.forEach(t => {
+                balances[t.from] -= t.amount;
+                balances[t.to] += t.amount;
+            });
+
+            const debtors = [];
+            const creditors = [];
+
+            window.state.members.forEach(m => {
+                if (balances[m] < 0) {
+                    debtors.push({ name: m, balance: -balances[m] });
+                } else if (balances[m] > 0) {
+                    creditors.push({ name: m, balance: balances[m] });
+                }
+            });
+
+            const transfers = [];
+            let dIdx = 0, cIdx = 0;
+
+            while (dIdx < debtors.length && cIdx < creditors.length) {
+                const debtor = debtors[dIdx];
+                const creditor = creditors[cIdx];
+                const amount = Math.min(debtor.balance, creditor.balance);
+
+                if (amount > 0) {
+                    transfers.push({
+                        from: debtor.name,
+                        to: creditor.name,
+                        amount: amount
+                    });
+                }
+
+                debtor.balance -= amount;
+                creditor.balance -= amount;
+
+                if (debtor.balance === 0) dIdx++;
+                if (creditor.balance === 0) cIdx++;
+            }
+
+            // 원단위 1/N 렌더링에 정확하게 반올림 매칭 (10원 강제 정렬 전면 제거)
             transfers.sort((a, b) => {
-                const isSelfA = (a.from === a.to);
-                const isSelfB = (b.from === b.to);
-                if (isSelfA && !isSelfB) return 1;  
-                if (!isSelfA && isSelfB) return -1; 
-                return a.from.localeCompare(b.from, 'ko') || a.to.localeCompare(b.to, 'ko');
+                return a.from.localeCompare(b.from, 'ko');
             });
 
             return transfers;
@@ -766,7 +876,7 @@
                 return;
             }
 
-            const currentTitle = window.state.tripTitle || '2026 제주도 여행';
+            const currentTitle = window.state.tripTitle || '2026 제천 대회';
             const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
             const transfers = window.getCalculatedTransfers();
             const now = new Date();
@@ -782,7 +892,7 @@
             billText += `📌 지출 요약 리스트:\n`;
             window.state.expenses.slice().reverse().forEach((e, idx) => {
                 const totalPortions = e.participants.reduce((sum, p) => sum + p.count, 0);
-                const individualShare = Math.floor(e.amount / totalPortions);
+                const individualShare = Math.round(e.amount / totalPortions);
                 const participantLabel = e.participants.map(p => p.count > 1 ? `${p.name}(${p.count}인)` : p.name).join(', ');
                 
                 billText += ` - [${idx + 1}] ${e.title} : ${e.amount.toLocaleString()}원\n`;
@@ -790,15 +900,31 @@
             });
             billText += `\n------------------------------------\n\n`;
 
-            billText += `💬 추천 송금 목록:\n`;
+            billText += `📋 최종 정산 내역:\n`;
             if (transfers.length === 0) {
                 billText += ` - 서로 주고받을 정산금이 존재하지 않습니다. 깔끔합니다!\n`;
             } else {
                 transfers.forEach(t => {
-                    billText += ` 💸 [${t.from}] ➔ [${t.to}]  :  ${t.amount.toLocaleString()}원\n`;
+                    billText += ` 💸 [${t.from}]  :  ${t.amount.toLocaleString()}원\n`;
                 });
             }
-            billText += `\n함께한 순간은 추억으로, 비용은 공평하게.`;
+            
+            const bankNameVal = window.state.bankName || "카카오뱅크";
+            const acctNumVal = window.state.accountNumber || "";
+            const accountHolderVal = window.state.accountHolder || (transfers.length > 0 ? transfers[0].to : "");
+            
+            billText += `\n------------------------------------\n`;
+            if (transfers.length > 0) {
+                // 마지막 줄 요건에 맞춰 수령인(예금주) 실명 정보가 최우선 표기되도록 연동 완료
+                billText += `🏦 [${accountHolderVal}]님에게 입금하세요\n`;
+                if (acctNumVal) {
+                    billText += `👉 입금 계좌: ${bankNameVal} ${acctNumVal} (예금주: ${accountHolderVal})\n`;
+                } else {
+                    billText += `👉 계좌 번호가 아직 등록되지 않았습니다. 총무님 계좌를 알려주세요!\n`;
+                }
+            }
+            billText += `------------------------------------\n`;
+            billText += `함께한 순간은 추억으로, 비용은 공평하게.`;
 
             document.getElementById('billingTextarea').value = billText;
 
@@ -821,7 +947,7 @@
             try {
                 const successful = document.execCommand('copy');
                 if (successful) {
-                    showToastAlert('청구서가 복사되었습니다! 카톡방에 바로 전달해 보세요.');
+                    showToastAlert('청구서 정보가 클립보드에 성공적으로 복사되었습니다! 카톡에 공유해 보세요.');
                 } else {
                     showToastAlert('복사 실패. 직접 영역을 지정해 복사해 주세요.');
                 }
@@ -831,7 +957,7 @@
         };
 
         window.executeIntermediateReset = function() {
-            const currentTitle = window.state.tripTitle || '2026 제주도 여행';
+            const currentTitle = window.state.tripTitle || '2026 제천 대회';
             const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
             const currentTransfers = window.getCalculatedTransfers();
             const now = new Date();
@@ -861,7 +987,6 @@
                 showToastAlert('저장할 지출 내역이 없습니다.');
                 return;
             }
-            // 현재 활성화된 방 제목을 아카이브 기본값으로 설정해줌
             document.getElementById('archiveTripNameInput').value = window.state.tripTitle || '';
             const modal = document.getElementById('archivePromptModal');
             modal.classList.remove('hidden');
@@ -877,7 +1002,7 @@
         window.executeFinalArchive = function() {
             const input = document.getElementById('archiveTripNameInput');
             const tripName = input.value.trim();
-            const finalName = tripName || window.state.tripTitle || '2026 제주도 여행';
+            const finalName = tripName || window.state.tripTitle || '이름 없는 대회';
             
             const currentTransfers = window.getCalculatedTransfers();
             const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
@@ -896,7 +1021,6 @@
                 completedTransfers: {...window.state.completedTransfers}
             });
 
-            // 정산이 완전히 끝나면 활성 데이터셋 초기화
             window.state.expenses = [];
             window.state.completedTransfers = {};
             
@@ -946,10 +1070,18 @@
 
         // UI 실시간 동적 렌더러
         window.render = function(resetSelection = false) {
-            // 상단 정산 이름 업데이트
-            const currentTitle = window.state.tripTitle || '2026 제주도 여행';
+            const currentTitle = window.state.tripTitle || '2026 제천 대회';
             document.getElementById('tripTitleDisplay').innerText = currentTitle;
             document.getElementById('spentCardTitle').innerText = currentTitle;
+
+            const savedAccountDisplay = document.getElementById('savedAccountDisplay');
+            if (window.state.accountNumber) {
+                const holderStr = window.state.accountHolder ? ` (예금주: ${window.state.accountHolder})` : '';
+                savedAccountDisplay.innerHTML = `<i class="fa-solid fa-circle-info text-indigo-500"></i> 현재 정산금 수령 계좌: <strong>${window.state.bankName} ${window.state.accountNumber}${holderStr}</strong>`;
+                savedAccountDisplay.classList.remove('hidden');
+            } else {
+                savedAccountDisplay.classList.add('hidden');
+            }
 
             const memberListEl = document.getElementById('memberList');
             if (window.state.members.length === 0) {
@@ -1027,7 +1159,8 @@
             } else {
                 historyListEl.innerHTML = window.state.expenses.map(e => {
                     const totalPortions = e.participants.reduce((sum, p) => sum + p.count, 0);
-                    const individualShare = totalPortions > 0 ? Math.floor(e.amount / totalPortions) : 0;
+                    // 1원단위 반올림(Math.round) 처리 적용
+                    const individualShare = totalPortions > 0 ? Math.round(e.amount / totalPortions) : 0;
                     const participantLabels = e.participants.map(p => p.count > 1 ? `${p.name}(${p.count}인)` : p.name).join(', ');
 
                     return `
@@ -1071,30 +1204,58 @@
             const guideListEl = document.getElementById('transferGuideList');
             
             if (transfers.length === 0) {
-                guideListEl.innerHTML = `<p class="text-xs text-slate-500 py-1"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> 주고받을 잔액이 깔끔하게 맞아떨어집니다.</p>`;
+                guideListEl.innerHTML = `<p class="text-xs text-slate-500 py-1"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> 정산 내역이 없습니다. 비용을 등록해 보세요.</p>`;
             } else {
-                guideListEl.innerHTML = transfers.map(t => {
+                const acctNumVal = window.state.accountNumber || "";
+                const bankNameVal = window.state.bankName || "카카오뱅크";
+                const displayHolder = window.state.accountHolder || (transfers.length > 0 ? transfers[0].to : "");
+
+                // [요청 전격 반영]: 수취 대표 계좌 배너의 수령인 실명 표출 완벽 조율
+                let accountBannerHtml = '';
+                if (acctNumVal) {
+                    accountBannerHtml = `
+                        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs text-indigo-800 flex items-center gap-2 mb-3.5 shadow-sm">
+                            <i class="fa-solid fa-building-columns text-base text-indigo-500 shrink-0"></i>
+                            <div class="min-w-0">
+                                <p class="font-bold text-slate-800">🏦 정산금 보내실 대표 계좌 (예금주: ${displayHolder})</p>
+                                <p class="text-[11px] text-indigo-600 font-mono font-bold mt-0.5">${bankNameVal} ${acctNumVal}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const listCardsHtml = transfers.map(t => {
                     const uniqueTransferKey = `${t.from}-${t.to}-${t.amount}`;
                     const isDone = !!window.state.completedTransfers[uniqueTransferKey];
-                    const isSelf = (t.from === t.to);
 
                     return `
-                        <div class="flex items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-indigo-100/30 text-xs shadow-sm transition-all duration-300 ${isDone ? 'opacity-50 bg-slate-50/50' : ''}">
-                            <div class="flex items-center gap-2">
-                                <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500 line-through' : (isSelf ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-500')}">${t.from}</span>
-                                <span class="text-slate-400 font-medium"><i class="fa-solid fa-arrow-right"></i></span>
-                                <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500 line-through' : 'bg-emerald-50 text-emerald-600'}">${t.to}</span>
-                                ${isSelf ? `<span class="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] scale-95 px-1.5 py-0.2 rounded font-normal">본인 부담분</span>` : ''}
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-3.5 rounded-xl border border-indigo-100/30 text-xs shadow-sm transition-all duration-300 gap-3 ${isDone ? 'opacity-50 bg-slate-50/50' : ''}">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <!-- 보내는 사람: 분홍색 유저 박스 적용 -->
+                                    <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500' : 'bg-rose-50 text-rose-600'}">
+                                        <i class="fa-solid fa-user text-rose-400 mr-1 text-[10px]"></i>${t.from}
+                                    </span>
+                                    
+                                    <i class="fa-solid fa-arrow-right text-slate-300 text-[10px]"></i>
+                                    
+                                    <!-- 받는 사람: 대치되는 수령인 박스로 실명 동기화 처리 -->
+                                    <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500' : 'bg-emerald-50 text-emerald-600'}">
+                                        <i class="fa-solid fa-circle-user text-emerald-500 mr-1 text-[10px]"></i>${t.to}
+                                    </span>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-2.5">
-                                <span class="font-extrabold text-sm ${isDone ? 'text-slate-400 line-through' : 'text-indigo-700'}">${t.amount.toLocaleString()}원</span>
-                                <button onclick="toggleTransferStatus('${uniqueTransferKey}')" class="px-3 py-1.5 rounded-lg text-[11px] md:text-xs font-bold transition-all ${isDone ? 'bg-slate-200 text-slate-600 hover:bg-indigo-100 hover:text-indigo-700' : 'bg-indigo-600 text-white hover:bg-emerald-500 hover:shadow-sm'} flex items-center gap-1">
-                                    ${isDone ? '<i class="fa-solid fa-check text-[10px]"></i> 완료됨' : (isSelf ? '<i class="fa-solid fa-circle-check text-[10px]"></i> 확인 완료' : '<i class="fa-solid fa-paper-plane text-[10px]"></i> 송금 완료')}
+                            <div class="flex items-center justify-between sm:justify-end gap-2.5 shrink-0 border-t sm:border-0 pt-2 sm:pt-0">
+                                <span class="font-extrabold text-[14px] ${isDone ? 'text-slate-400 line-through' : 'text-indigo-700'}">${t.amount.toLocaleString()}원</span>
+                                <button onclick="toggleTransferStatus('${uniqueTransferKey}')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${isDone ? 'bg-slate-200 text-slate-600' : 'bg-indigo-600 text-white hover:bg-emerald-500'} flex items-center gap-1">
+                                    ${isDone ? '<i class="fa-solid fa-check text-[10px]"></i> 정산완료' : '<i class="fa-solid fa-paper-plane text-[10px]"></i> 송금완료'}
                                 </button>
                             </div>
                         </div>
                     `;
                 }).join('');
+
+                guideListEl.innerHTML = accountBannerHtml + `<div class="space-y-2">${listCardsHtml}</div>`;
             }
 
             const archiveContainer = document.getElementById('archiveContainer');
@@ -1122,33 +1283,36 @@
                     if (arch.transfers.length === 0) {
                         transfersDetailHtml = `<p class="text-slate-400 text-xs italic">송금이 필요 없는 깔끔한 내역입니다.</p>`;
                     } else {
-                        // 일렬(세로 목록)로 깔끔하고 가독성 있게 구조 개편 (모바일 줄바꿈 전면 제거)
                         transfersDetailHtml = arch.transfers.map(t => {
                             const uniqueKey = `${t.from}-${t.to}-${t.amount}`;
                             const isDone = arch.completedTransfers && arch.completedTransfers[uniqueKey];
-                            const isSelf = (t.from === t.to);
                             
                             return `
-                                <div class="flex items-center justify-between bg-white px-3 py-2.5 rounded-xl border border-emerald-100 text-xs shadow-sm hover:shadow-md transition-all gap-2">
-                                    <!-- 왼쪽: 보내는 사람 ➔ 받는 사람 -->
-                                    <div class="flex items-center gap-1.5 min-w-0">
-                                        <span class="font-bold text-slate-700 text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[55px] sm:max-w-[70px]">${t.from}</span>
-                                        <span class="text-slate-300 text-[10px]"><i class="fa-solid fa-arrow-right"></i></span>
-                                        <span class="font-bold text-indigo-700 text-[11px] bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100/40 truncate max-w-[55px] sm:max-w-[70px]">${t.to}</span>
-                                        ${isSelf ? `<span class="text-slate-400 text-[9px] font-normal shrink-0">본인</span>` : ''}
-                                    </div>
-                                    <!-- 오른쪽: 정산액 및 변경 버튼 -->
-                                    <div class="flex items-center gap-2 shrink-0">
-                                        <span class="text-indigo-600 text-[13px] font-extrabold tracking-tight shrink-0">${t.amount.toLocaleString()} 원</span>
-                                        <div class="flex items-center gap-1">
+                                <div class="flex flex-col bg-white p-3.5 rounded-xl border border-emerald-100 text-xs shadow-sm hover:shadow-md transition-all gap-2">
+                                    <!-- 윗줄: 송금 주체 요약 정보 -->
+                                    <div class="flex items-center justify-between gap-1">
+                                        <div class="flex items-center gap-1.5 min-w-0">
+                                            <span class="font-bold text-slate-700 text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200 truncate">
+                                                <i class="fa-solid fa-user text-slate-400 mr-1 text-[10px]"></i>${t.from}
+                                            </span>
+                                            <span class="text-slate-300 text-[10px]"><i class="fa-solid fa-arrow-right"></i></span>
+                                            <span class="font-bold text-indigo-700 text-[11px] bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100/40 truncate">
+                                                <i class="fa-solid fa-circle-user text-indigo-500 mr-1 text-[10px]"></i>${t.to}
+                                            </span>
+                                        </div>
+                                        <div class="shrink-0">
                                             ${isDone 
                                                 ? `<span class="text-emerald-700 bg-emerald-50 border border-emerald-150 px-1.5 py-0.5 rounded text-[10px] font-bold"><i class="fa-solid fa-circle-check"></i> 완료</span>`
                                                 : `<span class="text-amber-700 bg-amber-50 border border-amber-150 px-1.5 py-0.5 rounded text-[10px] font-bold"><i class="fa-solid fa-clock"></i> 대기</span>`
                                             }
-                                            <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-semibold text-slate-600 border border-slate-200 flex items-center justify-center shrink-0" title="상태 변경">
-                                                변경
-                                            </button>
                                         </div>
+                                    </div>
+                                    <!-- 아랫줄: 금액 정보 및 변경 버튼 2단 가독성 배치 -->
+                                    <div class="flex items-center justify-between pt-1 border-t border-slate-50">
+                                        <span class="text-indigo-600 text-[13px] font-extrabold tracking-tight">${t.amount.toLocaleString()} 원</span>
+                                        <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-semibold text-slate-600 border border-slate-200 flex items-center justify-center shrink-0">
+                                            변경
+                                        </button>
                                     </div>
                                 </div>
                             `;
@@ -1236,7 +1400,7 @@
                 expenseTitleInput.placeholder = `예: ${todayDay}일 점심`;
             }
         } catch (e) {
-            console.error("날짜 로드 실패", e);
+            console.error("날짜 감지 실패", e);
         }
 
         window.render(true);
