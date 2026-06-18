@@ -29,7 +29,7 @@
 
     <!-- [홈 화면] 방 만들기 / 참여하기 (URL에 방 ID가 없을 때 표시) -->
     <div id="homeScreen" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-6">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5">
             <div class="space-y-2">
                 <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-800 text-3xl">
                     <i class="fa-solid fa-plane-departure"></i>
@@ -40,12 +40,25 @@
                 </p>
             </div>
 
-            <div class="space-y-3 pt-2">
-                <!-- 방 생성 버튼: 에러 없이 무조건 즉각 작동 -->
+            <!-- 정산 내용 입력 상자 (클릭 시 예시 문구 지워지는 편리한 인터랙션 적용) -->
+            <div class="space-y-1.5 pt-1 text-left">
+                <label class="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+                    <i class="fa-solid fa-pen-to-square"></i> 이번 정산 명칭 / 대회 제목
+                </label>
+                <input type="text" id="initialTripTitle" 
+                       value="2026 제천 대회 (일정 입력)" 
+                       placeholder="예: 2026 제천 대회 (일정 입력)" 
+                       onfocus="if(this.value === '2026 제천 대회 (일정 입력)') { this.value = '2026 제천 대회 '; }" 
+                       onblur="if(this.value.trim() === '2026 제천 대회' || this.value.trim() === '') { this.value = '2026 제천 대회 (일정 입력)'; }"
+                       class="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none text-sm text-center font-semibold focus:border-slate-400 focus:ring-1 focus:ring-slate-400 transition-all">
+            </div>
+
+            <div class="space-y-3">
+                <!-- 방 생성 버튼 -->
                 <button onclick="handleCreateRoomClick()" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-xl text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2">
                     <i class="fa-solid fa-share-nodes"></i> 🚀 실시간 공유 정산방 만들기
                 </button>
-                <div class="relative flex py-2 items-center text-xs text-slate-300">
+                <div class="relative flex py-1 items-center text-xs text-slate-300">
                     <div class="flex-grow border-t border-slate-200"></div>
                     <span class="flex-shrink mx-4 text-slate-400">또는</span>
                     <div class="flex-grow border-t border-slate-200"></div>
@@ -63,18 +76,28 @@
     <!-- 상단 헤더: 차분하고 고급스러운 미드나잇 슬레이트 테마 -->
     <header class="bg-slate-900 text-white py-4 px-4 shadow-sm mb-4">
         <div class="max-w-5xl mx-auto flex justify-between items-center gap-2">
-            <div>
-                <h1 class="text-xl md:text-2xl font-bold tracking-tight flex items-center gap-1.5">
-                    <i class="fa-solid fa-wallet text-slate-400 text-lg"></i> TRAVEL PAY
-                </h1>
-                <div class="flex items-center gap-1.5 mt-0.5">
+            <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h1 class="text-lg font-bold tracking-tight flex items-center gap-1.5 shrink-0">
+                        <i class="fa-solid fa-wallet text-slate-400 text-base"></i> TRAVEL PAY
+                    </h1>
+                    <span class="text-slate-700 text-xs hidden xs:inline">|</span>
+                    <!-- 실시간으로 보여주는 정산 이름 & 수정 버튼 -->
+                    <div class="flex items-center gap-1 min-w-0">
+                        <span id="tripTitleDisplay" class="text-xs md:text-sm font-extrabold text-amber-400 truncate max-w-[120px] xs:max-w-[160px] sm:max-w-xs">정산 정보 불러오는 중</span>
+                        <button onclick="editTripTitle()" class="text-slate-500 hover:text-slate-300 transition-colors p-1" title="정산 내용 수정">
+                            <i class="fa-solid fa-pen text-[10px]"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 mt-1 flex-wrap">
                     <span id="syncStatusDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm"></span>
                     <span id="syncStatusText" class="text-slate-400 text-[10px] md:text-xs">오프라인 모드</span>
                     <span class="text-slate-500 text-[10px] md:text-xs">|</span>
                     <span id="roomCodeDisplay" class="text-amber-400 text-[10px] md:text-xs font-bold uppercase">방코드: 연결대기</span>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 shrink-0 self-center">
                 <button onclick="copyRoomLink()" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1">
                     <i class="fa-solid fa-share-nodes"></i> <span class="hidden xs:inline">링크 복사</span>
                 </button>
@@ -169,7 +192,8 @@
                 <div class="absolute right-4 top-4 text-8xl text-slate-700/15 pointer-events-none">
                     <i class="fa-solid fa-calculator"></i>
                 </div>
-                <p class="text-slate-300 text-xs font-medium">우리 멤버들의 누적 총 지출액</p>
+                <!-- 여기에 정산 내용 제목 매칭 표시 -->
+                <p class="text-slate-300 text-xs font-medium"><span id="spentCardTitle" class="text-amber-400 font-bold">우리들의 여행 정산</span> 누적 총 지출액</p>
                 <h3 class="text-2xl md:text-3xl font-extrabold mt-1 mb-4 tracking-tight" id="totalSpentAmount">0 원</h3>
                 
                 <div class="flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
@@ -263,7 +287,7 @@
                 <i class="fa-solid fa-box-archive text-emerald-500"></i> 최종 정산 마감 및 보관
             </h3>
             <p class="text-xs text-slate-500">이번 여행의 이름을 입력해 주세요. 누적 지출와 송금 가이드 완료 정보가 아카이브 보관실로 이동합니다.</p>
-            <input type="text" id="archiveTripNameInput" placeholder="예: 2026 제주도 우정여행" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 outline-none text-sm">
+            <input type="text" id="archiveTripNameInput" placeholder="예: 2026 제천 대회" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 outline-none text-sm">
             <div class="flex justify-end gap-2.5 pt-1">
                 <button onclick="closeFinalArchivePrompt()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-semibold rounded-lg transition-colors">취소</button>
                 <button onclick="executeFinalArchive()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-semibold rounded-lg transition-colors">마감 및 저장</button>
@@ -297,6 +321,7 @@
         ];
 
         window.state = {
+            tripTitle: "2026 제천 대회",
             members: [...DEFAULT_MEMBERS],
             expenses: [],
             completedTransfers: {},
@@ -319,12 +344,15 @@
                         console.error("로컬 백업 로드 실패:", e);
                     }
                 } else {
+                    const fallbackTitle = window.pendingTripTitle || '2026 제천 대회';
                     window.state = {
+                        tripTitle: fallbackTitle,
                         members: [...DEFAULT_MEMBERS],
                         expenses: [],
                         completedTransfers: {},
                         archives: []
                     };
+                    delete window.pendingTripTitle;
                 }
                 document.getElementById('roomCodeDisplay').innerText = `방코드: ${window.roomId}`;
                 document.getElementById('homeScreen').classList.add('hidden');
@@ -343,13 +371,25 @@
             }
         };
 
-        // 방 생성 버튼을 누르면 딜레이 없이 즉시 작동
+        // 방 생성 버튼을 누르면 즉시 작동
         window.handleCreateRoomClick = function() {
+            const titleInput = document.getElementById('initialTripTitle');
+            let tripTitle = titleInput ? titleInput.value.trim() : '';
+
+            // 만약 기본값 상태 그대로 개설한다면, "(일정 입력)" 텍스트가 남지 않도록 보정
+            if (tripTitle === '2026 제천 대회 (일정 입력)') {
+                tripTitle = '2026 제천 대회';
+            }
+
             const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
             let newCode = '';
             for (let i = 0; i < 6; i++) {
                 newCode += letters.charAt(Math.floor(Math.random() * letters.length));
             }
+
+            // 해시 변경 시점에 동기화되도록 대기 변수에 정산명을 임시 세팅
+            window.pendingTripTitle = tripTitle || '2026 제천 대회';
+
             window.location.hash = newCode;
             window.loadLocalBackup();
             
@@ -453,11 +493,21 @@
             unsubscribeDoc = onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
+                    window.state.tripTitle = data.tripTitle || '2026 제천 대회';
                     window.state.members = data.members || [...DEFAULT_MEMBERS];
                     window.state.expenses = data.expenses || [];
                     window.state.completedTransfers = data.completedTransfers || {};
                     window.state.archives = data.archives || [];
                 } else {
+                    const fallbackTitle = window.pendingTripTitle || '2026 제천 대회';
+                    window.state = {
+                        tripTitle: fallbackTitle,
+                        members: [...DEFAULT_MEMBERS],
+                        expenses: [],
+                        completedTransfers: {},
+                        archives: []
+                    };
+                    delete window.pendingTripTitle;
                     setDoc(docRef, window.state);
                 }
                 window.render(false);
@@ -488,6 +538,18 @@
     <!-- 3단계: 정산 어플리케이션 상세 렌더링 및 비즈니스 연산 로직 -->
     <script>
         
+        // 정산제목 수정용 모달/창 유틸리티
+        window.editTripTitle = function() {
+            const currentTitle = window.state.tripTitle || '2026 제천 대회';
+            const newTitle = prompt('수정할 정산의 명칭이나 여행 제목을 입력하세요:', currentTitle);
+            if (newTitle !== null) {
+                const trimmed = newTitle.trim();
+                window.state.tripTitle = trimmed || '2026 제천 대회';
+                window.saveData();
+                showToastAlert('정산 명칭이 성공적으로 변경되었습니다.');
+            }
+        };
+
         window.toggleAllParticipants = function(check) {
             const checkboxes = document.querySelectorAll('.participant-checkbox');
             checkboxes.forEach(cb => {
@@ -704,12 +766,14 @@
                 return;
             }
 
+            const currentTitle = window.state.tripTitle || '2026 제천 대회';
             const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
             const transfers = window.getCalculatedTransfers();
             const now = new Date();
             const dateString = `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
             let billText = `[✈️ TRAVEL PAY - 중간 정산 청구서]\n`;
+            billText += `정산 내용: ${currentTitle}\n`;
             billText += `일시: ${dateString}\n`;
             billText += `누적 총 지출: ${totalSpent.toLocaleString()}원\n`;
             billText += `등록 지출 건수: ${window.state.expenses.length}건\n`;
@@ -767,6 +831,7 @@
         };
 
         window.executeIntermediateReset = function() {
+            const currentTitle = window.state.tripTitle || '2026 제천 대회';
             const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
             const currentTransfers = window.getCalculatedTransfers();
             const now = new Date();
@@ -774,7 +839,7 @@
 
             window.state.archives.unshift({
                 id: Date.now(),
-                title: `[중간 정산] ${now.getMonth() + 1}월 ${now.getDate()}일 정산분`,
+                title: `[중간 정산] ${currentTitle} (${now.getMonth() + 1}/${now.getDate()})`,
                 type: 'intermediate',
                 date: dateString,
                 totalSpent: totalSpent,
@@ -796,7 +861,8 @@
                 showToastAlert('저장할 지출 내역이 없습니다.');
                 return;
             }
-            document.getElementById('archiveTripNameInput').value = '';
+            // 현재 활성화된 방 제목을 아카이브 기본값으로 설정해줌
+            document.getElementById('archiveTripNameInput').value = window.state.tripTitle || '';
             const modal = document.getElementById('archivePromptModal');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
@@ -811,7 +877,7 @@
         window.executeFinalArchive = function() {
             const input = document.getElementById('archiveTripNameInput');
             const tripName = input.value.trim();
-            const finalName = tripName || '이름 없는 여행';
+            const finalName = tripName || window.state.tripTitle || '이름 없는 여행';
             
             const currentTransfers = window.getCalculatedTransfers();
             const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
@@ -830,6 +896,7 @@
                 completedTransfers: {...window.state.completedTransfers}
             });
 
+            // 정산이 완전히 끝나면 활성 데이터셋 초기화
             window.state.expenses = [];
             window.state.completedTransfers = {};
             
@@ -879,6 +946,11 @@
 
         // UI 실시간 동적 렌더러
         window.render = function(resetSelection = false) {
+            // 상단 정산 이름 업데이트
+            const currentTitle = window.state.tripTitle || '2026 제천 대회';
+            document.getElementById('tripTitleDisplay').innerText = currentTitle;
+            document.getElementById('spentCardTitle').innerText = currentTitle;
+
             const memberListEl = document.getElementById('memberList');
             if (window.state.members.length === 0) {
                 memberListEl.innerHTML = '<span class="text-slate-400 text-xs w-full text-center py-2">등록된 인원이 없습니다. 멤버를 추가해보세요!</span>';
@@ -1050,30 +1122,30 @@
                     if (arch.transfers.length === 0) {
                         transfersDetailHtml = `<p class="text-slate-400 text-xs italic">송금이 필요 없는 깔끔한 내역입니다.</p>`;
                     } else {
-                        // 모바일 화면 짤림 방지용 2단 분할형 카드 구조 렌더링
+                        // 일렬(세로 목록)로 깔끔하고 가독성 있게 구조 개편 (모바일 줄바꿈 전면 제거)
                         transfersDetailHtml = arch.transfers.map(t => {
                             const uniqueKey = `${t.from}-${t.to}-${t.amount}`;
                             const isDone = arch.completedTransfers && arch.completedTransfers[uniqueKey];
                             const isSelf = (t.from === t.to);
                             
                             return `
-                                <div class="flex flex-col bg-white p-3 rounded-xl border border-emerald-100 text-xs shadow-sm hover:shadow-md transition-all gap-2.5">
-                                    <!-- 윗줄: 정산 주체 (보낼 사람 ➔ 받을 사람) -->
-                                    <div class="flex items-center gap-1.5 flex-wrap">
-                                        <span class="font-bold text-slate-700 text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[70px]">${t.from}</span>
+                                <div class="flex items-center justify-between bg-white px-3 py-2.5 rounded-xl border border-emerald-100 text-xs shadow-sm hover:shadow-md transition-all gap-2">
+                                    <!-- 왼쪽: 보내는 사람 ➔ 받는 사람 -->
+                                    <div class="flex items-center gap-1.5 min-w-0">
+                                        <span class="font-bold text-slate-700 text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[55px] sm:max-w-[70px]">${t.from}</span>
                                         <span class="text-slate-300 text-[10px]"><i class="fa-solid fa-arrow-right"></i></span>
-                                        <span class="font-bold text-indigo-700 text-[11px] bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100/40 truncate max-w-[70px]">${t.to}</span>
-                                        ${isSelf ? `<span class="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[9px] px-1.5 py-0.1 rounded font-normal shrink-0">본인</span>` : ''}
+                                        <span class="font-bold text-indigo-700 text-[11px] bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100/40 truncate max-w-[55px] sm:max-w-[70px]">${t.to}</span>
+                                        ${isSelf ? `<span class="text-slate-400 text-[9px] font-normal shrink-0">본인</span>` : ''}
                                     </div>
-                                    <!-- 아랫줄: 금액 정보 & 상태/글씨 버튼 (오른쪽 정렬로 짤림 전면 차단) -->
-                                    <div class="flex items-center justify-between border-t border-slate-50 pt-2 gap-2">
-                                        <span class="text-indigo-600 text-xs sm:text-sm font-extrabold tracking-tight shrink-0">${t.amount.toLocaleString()} 원</span>
-                                        <div class="flex items-center gap-1.5 shrink-0">
+                                    <!-- 오른쪽: 정산액 및 변경 버튼 -->
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <span class="text-indigo-600 text-[13px] font-extrabold tracking-tight shrink-0">${t.amount.toLocaleString()} 원</span>
+                                        <div class="flex items-center gap-1">
                                             ${isDone 
-                                                ? `<span class="text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5 rounded text-[10px] font-bold shrink-0"><i class="fa-solid fa-circle-check"></i> 완료</span>`
-                                                : `<span class="text-amber-700 bg-amber-50 border border-amber-150 px-2 py-0.5 rounded text-[10px] font-bold shrink-0"><i class="fa-solid fa-clock"></i> 대기</span>`
+                                                ? `<span class="text-emerald-700 bg-emerald-50 border border-emerald-150 px-1.5 py-0.5 rounded text-[10px] font-bold"><i class="fa-solid fa-circle-check"></i> 완료</span>`
+                                                : `<span class="text-amber-700 bg-amber-50 border border-amber-150 px-1.5 py-0.5 rounded text-[10px] font-bold"><i class="fa-solid fa-clock"></i> 대기</span>`
                                             }
-                                            <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-600 border border-slate-200 flex items-center justify-center shrink-0 transition-colors" title="상태 변경">
+                                            <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-semibold text-slate-600 border border-slate-200 flex items-center justify-center shrink-0" title="상태 변경">
                                                 변경
                                             </button>
                                         </div>
@@ -1116,8 +1188,7 @@
                                 <p class="text-[11px] text-slate-600 font-semibold flex items-center gap-1.5">
                                     <i class="fa-solid fa-list-check text-slate-500"></i> 상세 송금 현황
                                 </p>
-                                <!-- grid-cols-1로 변경하여 모바일에서도 꼬임 없이 1열(세로 일렬)로 깔끔하게 가독성 극대화 -->
-                                <div class="grid grid-cols-1 gap-2.5 mt-1.5">
+                                <div class="grid grid-cols-1 gap-2 mt-1.5">
                                     ${transfersDetailHtml}
                                 </div>
                             </div>
