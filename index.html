@@ -369,6 +369,7 @@
         // 영수증 base64 처리용 전역 임시 변수 및 헬퍼 함수
         window.tempReceiptImage = "";
 
+        // [용량 초과 에러 해결] 이미지 자동 리사이징 및 압축 엔진 추가
         window.handleReceiptFileChange = function(input) {
             const file = input.files[0];
             const fileNameSpan = document.getElementById('receiptFileName');
@@ -388,7 +389,35 @@
             
             const reader = new FileReader();
             reader.onload = function(e) {
-                window.tempReceiptImage = e.target.result;
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    // 최대 가로/세로 길이를 600px로 조절하여 불필요한 용량 축소
+                    const max_size = 600;
+                    if (width > height) {
+                        if (width > max_size) {
+                            height *= max_size / width;
+                            width = max_size;
+                        }
+                    } else {
+                        if (height > max_size) {
+                            width *= max_size / height;
+                            height = max_size;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // JPEG 0.6 고성능 압축을 적용하여 데이터 전송 한계를 완벽히 우회함 (수 MB -> 20KB대 축소)
+                    window.tempReceiptImage = canvas.toDataURL('image/jpeg', 0.6);
+                };
+                img.src = e.target.result;
             };
             reader.readAsDataURL(file);
         };
@@ -423,9 +452,10 @@
 
         // 아카이브에서 안전하게 영수증을 역추적해 불러와 모달창에 띄우는 헬퍼 함수
         window.viewArchivedReceipt = function(archiveId, expenseId) {
+            if (!window.state || !window.state.archives) return;
             const arch = window.state.archives.find(a => a.id === archiveId);
-            if (!arch) return;
-            const exp = arch.expenses.find(e => e.id === expenseId);
+            if (!arch || !arch.expenses) return;
+            const exp = arch.expenses.find(e => e && e.id === expenseId);
             if (exp && exp.receiptImage) {
                 window.viewReceipt(exp.receiptImage);
             }
@@ -453,6 +483,15 @@
                         archives: []
                     };
                 }
+                
+                // 데이터 무결성을 보장하기 위한 강제 구조 가드 추가
+                if (!window.state) window.state = {};
+                if (!window.state.tripTitle) window.state.tripTitle = '2026 제천 대회';
+                if (!window.state.members) window.state.members = [...DEFAULT_MEMBERS];
+                if (!window.state.expenses) window.state.expenses = [];
+                if (!window.state.completedTransfers) window.state.completedTransfers = {};
+                if (!window.state.archives) window.state.archives = [];
+
                 document.getElementById('roomCodeDisplay').innerText = `방코드: ${window.roomId}`;
                 document.getElementById('homeScreen').classList.add('hidden');
                 document.getElementById('homeScreen').classList.remove('flex');
@@ -758,6 +797,8 @@
             const now = new Date();
             const timeString = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
+            if (!window.state.expenses) window.state.expenses = [];
+
             window.state.expenses.unshift({
                 id: Date.now(),
                 title: title,
@@ -776,6 +817,7 @@
         };
 
         window.removeExpense = function(id) {
+            if (!window.state.expenses) window.state.expenses = [];
             window.state.expenses = window.state.expenses.filter(e => e.id !== id);
             window.saveData();
         };
@@ -797,6 +839,9 @@
         window.getCalculatedTransfers = function() {
             const gross = {}; 
             
+            if (!window.state.members) window.state.members = [...DEFAULT_MEMBERS];
+            if (!window.state.expenses) window.state.expenses = [];
+
             window.state.members.forEach(m1 => {
                 gross[m1] = {};
                 window.state.members.forEach(m2 => {
@@ -912,7 +957,7 @@
         };
 
         window.openIntermediateSettlement = function() {
-            if (window.state.expenses.length === 0) {
+            if (!window.state.expenses || window.state.expenses.length === 0) {
                 showToastAlert('중간 정산할 지출 내역이 없습니다.');
                 return;
             }
@@ -991,6 +1036,11 @@
         };
 
         window.executeIntermediateReset = function() {
+            if (!window.state) window.state = {};
+            if (!window.state.expenses) window.state.expenses = [];
+            if (!window.state.completedTransfers) window.state.completedTransfers = {};
+            if (!window.state.archives) window.state.archives = [];
+
             const currentTitle = window.state.tripTitle || '2026 제천 대회';
             const totalSpent = window.state.expenses.reduce((sum, item) => sum + item.amount, 0);
             const currentTransfers = window.getCalculatedTransfers();
@@ -1017,7 +1067,7 @@
         };
 
         window.openFinalArchivePrompt = function() {
-            if (window.state.expenses.length === 0) {
+            if (!window.state.expenses || window.state.expenses.length === 0) {
                 showToastAlert('저장할 지출 내역이 없습니다.');
                 return;
             }
@@ -1034,6 +1084,11 @@
         };
 
         window.executeFinalArchive = function() {
+            if (!window.state) window.state = {};
+            if (!window.state.expenses) window.state.expenses = [];
+            if (!window.state.completedTransfers) window.state.completedTransfers = {};
+            if (!window.state.archives) window.state.archives = [];
+
             const input = document.getElementById('archiveTripNameInput');
             const tripName = input.value.trim();
             const finalName = tripName || window.state.tripTitle || '이름 없는 대회';
@@ -1064,6 +1119,7 @@
         };
 
         window.toggleTransferStatus = function(uniqueKey) {
+            if (!window.state.completedTransfers) window.state.completedTransfers = {};
             if (window.state.completedTransfers[uniqueKey]) {
                 delete window.state.completedTransfers[uniqueKey];
             } else {
@@ -1102,8 +1158,14 @@
             );
         };
 
-        // UI 실시간 동적 렌더러
+        // UI 실시간 동적 렌더러 (비정상적인 유저 이탈 및 강제 초기화 예외 가드 결합)
         window.render = function(resetSelection = false) {
+            if (!window.state) window.state = {};
+            if (!window.state.members) window.state.members = [...DEFAULT_MEMBERS];
+            if (!window.state.expenses) window.state.expenses = [];
+            if (!window.state.completedTransfers) window.state.completedTransfers = {};
+            if (!window.state.archives) window.state.archives = [];
+
             const currentTitle = window.state.tripTitle || '2026 제천 대회';
             document.getElementById('tripTitleDisplay').innerText = currentTitle;
             document.getElementById('spentCardTitle').innerText = currentTitle;
@@ -1207,7 +1269,7 @@
                                             <span>•</span>
                                             <span><i class="fa-regular fa-clock"></i> ${e.time}</span>
                                         </div>
-                                        <!-- [신규 추가] 영수증 존재 시 확인 버튼 노출 -->
+                                        <!-- 영수증 존재 시 확인 버튼 노출 -->
                                         ${e.receiptImage ? `
                                             <button onclick="viewReceipt('${e.receiptImage}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-colors">
                                                 <i class="fa-solid fa-receipt"></i> 영수증 보기
@@ -1315,23 +1377,26 @@
                     </div>`;
             } else {
                 archiveContainer.innerHTML = window.state.archives.map((arch) => {
-                    const totalTransferCount = arch.transfers.length;
+                    const totalTransferCount = arch.transfers ? arch.transfers.length : 0;
                     
                     let completedCount = 0;
-                    arch.transfers.forEach(t => {
-                        const key = `${t.from}-${t.to}-${t.amount}`;
-                        if (arch.completedTransfers && arch.completedTransfers[key]) {
-                            completedCount++;
-                        }
-                    });
+                    if (arch.transfers) {
+                        arch.transfers.forEach(t => {
+                            const key = `${t.from}-${t.to}-${t.amount}`;
+                            if (arch.completedTransfers && arch.completedTransfers[key]) {
+                                completedCount++;
+                            }
+                        });
+                    }
 
                     const isIntermediate = arch.type === 'intermediate';
 
                     let transfersDetailHtml = '';
-                    if (arch.transfers.length === 0) {
+                    if (!arch.transfers || arch.transfers.length === 0) {
                         transfersDetailHtml = `<p class="text-slate-400 text-xs italic">송금이 필요 없는 깔끔한 내역입니다.</p>`;
                     } else {
                         transfersDetailHtml = arch.transfers.map(t => {
+                            if (!t) return '';
                             const uniqueKey = `${t.from}-${t.to}-${t.amount}`;
                             const isDone = arch.completedTransfers && arch.completedTransfers[uniqueKey];
                             
@@ -1395,8 +1460,8 @@
                         }).join('');
                     }
 
-                    // [요청 전격 반영]: 보관소 카드 내에 누적 첨부된 영수증 이미지 리스트를 각각의 썸네일(갤러리)로 렌더링
-                    const archivedReceipts = arch.expenses ? arch.expenses.filter(e => e.receiptImage) : [];
+                    // 보관소 카드 내에 누적 첨부된 영수증 이미지 리스트를 각각의 썸네일(갤러리)로 렌더링 (방어 가드 장착)
+                    const archivedReceipts = arch.expenses ? arch.expenses.filter(e => e && e.receiptImage) : [];
                     let receiptsHtml = '';
                     if (archivedReceipts.length > 0) {
                         receiptsHtml = `
@@ -1425,7 +1490,7 @@
                                     <h3 class="text-sm md:text-md font-extrabold ${isIntermediate ? 'text-amber-800' : 'text-emerald-800'} flex items-center gap-1.5 truncate max-w-[200px] sm:max-w-sm">
                                         <i class="fa-solid ${isIntermediate ? 'fa-file-invoice-dollar text-amber-500' : 'fa-map-location-dot text-emerald-500'}"></i> ${arch.title}
                                     </h3>
-                                    <p class="text-[10px] text-slate-500 mt-0.5">${arch.date} 정산 완료 • 누적 지출 <strong>${arch.expenses.length}건</strong></p>
+                                    <p class="text-[10px] text-slate-500 mt-0.5">${arch.date} 정산 완료 • 누적 지출 <strong>${arch.expenses ? arch.expenses.length : 0}건</strong></p>
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
                                     <span class="text-[10px] md:text-xs ${isIntermediate ? 'bg-amber-50 text-amber-700 border border-amber-200/60' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'} px-2.5 py-0.5 rounded-full font-bold">
