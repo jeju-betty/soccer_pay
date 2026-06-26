@@ -177,6 +177,21 @@
                         </div>
                     </div>
 
+                    <!-- 영수증 첨부 기능 레이아웃 -->
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500 block mb-1">영수증 첨부 (선택)</label>
+                        <div class="flex items-center gap-2">
+                            <label class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-slate-200 hover:border-slate-400 cursor-pointer bg-slate-50 transition-colors text-xs text-slate-600">
+                                <i class="fa-solid fa-camera text-slate-400"></i>
+                                <span id="receiptFileName">이미지 선택</span>
+                                <input type="file" id="expenseReceipt" accept="image/*" class="hidden" onchange="handleReceiptFileChange(this)">
+                            </label>
+                            <button type="button" id="receiptClearBtn" onclick="clearReceiptFile()" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-500 p-2 rounded-lg text-xs" title="첨부 취소">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+
                     <button onclick="addExpense()" class="w-full bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm">
                         지출 내역 기록하기
                     </button>
@@ -295,6 +310,26 @@
         </div>
     </div>
 
+    <!-- 영수증 보기 모달 레이아웃 -->
+    <div id="receiptModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4" onclick="closeReceiptModal()">
+        <div class="bg-white rounded-2xl p-4 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                    <i class="fa-solid fa-receipt text-slate-500"></i> 첨부된 영수증 이미지
+                </h3>
+                <button onclick="closeReceiptModal()" class="text-slate-400 hover:text-slate-600 text-lg p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto flex items-center justify-center bg-slate-50 rounded-xl p-2 min-h-[250px]">
+                <img id="receiptModalImg" src="" alt="영수증 이미지" class="max-w-full max-h-[55vh] object-contain rounded-lg">
+            </div>
+            <div class="flex justify-end pt-1">
+                <button onclick="closeReceiptModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors">닫기</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 커스텀 알림/컨펌 모달 -->
     <div id="confirmModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl p-5 max-w-sm w-full shadow-xl">
@@ -330,6 +365,71 @@
 
         window.roomId = '';
         window.firebaseConfigured = false;
+
+        // 영수증 base64 처리용 전역 임시 변수 및 헬퍼 함수
+        window.tempReceiptImage = "";
+
+        window.handleReceiptFileChange = function(input) {
+            const file = input.files[0];
+            const fileNameSpan = document.getElementById('receiptFileName');
+            const clearBtn = document.getElementById('receiptClearBtn');
+            
+            if (!file) {
+                window.clearReceiptFile();
+                return;
+            }
+            
+            let displayName = file.name;
+            if (displayName.length > 15) {
+                displayName = displayName.substring(0, 12) + "...";
+            }
+            if (fileNameSpan) fileNameSpan.innerText = displayName;
+            if (clearBtn) clearBtn.classList.remove('hidden');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                window.tempReceiptImage = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.clearReceiptFile = function() {
+            const input = document.getElementById('expenseReceipt');
+            if (input) input.value = "";
+            const fileNameSpan = document.getElementById('receiptFileName');
+            if (fileNameSpan) fileNameSpan.innerText = "이미지 선택";
+            const clearBtn = document.getElementById('receiptClearBtn');
+            if (clearBtn) clearBtn.classList.add('hidden');
+            window.tempReceiptImage = "";
+        };
+
+        window.viewReceipt = function(base64Image) {
+            const modal = document.getElementById('receiptModal');
+            const img = document.getElementById('receiptModalImg');
+            if (modal && img) {
+                img.src = base64Image;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        };
+
+        window.closeReceiptModal = function() {
+            const modal = document.getElementById('receiptModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        };
+
+        // 아카이브에서 안전하게 영수증을 역추적해 불러와 모달창에 띄우는 헬퍼 함수
+        window.viewArchivedReceipt = function(archiveId, expenseId) {
+            const arch = window.state.archives.find(a => a.id === archiveId);
+            if (!arch) return;
+            const exp = arch.expenses.find(e => e.id === expenseId);
+            if (exp && exp.receiptImage) {
+                window.viewReceipt(exp.receiptImage);
+            }
+        };
 
         // 로컬 오프라인 전용 데이터 백업 복구기
         window.loadLocalBackup = function() {
@@ -441,14 +541,7 @@
         // =========================================================================
         // 🔑 [초간단 설정] 바로 아래의 null 자리에 파이어베이스의 { ... } 열쇠를 대입하세요!
         // =========================================================================
-        let fbConfig = {
-  apiKey: "AIzaSyAyQh3vCgipwKAZdPtVZRmwq3t9qapy8H0",
-  authDomain: "travel-pay-69d2e.firebaseapp.com",
-  projectId: "travel-pay-69d2e",
-  storageBucket: "travel-pay-69d2e.firebasestorage.app",
-  messagingSenderId: "822682405166",
-  appId: "1:822682405166:web:82a1529a259a03761b12bf"
-}; 
+        let fbConfig = null; 
 
         let appId = 'travel-pay-custom';
         let db = null;
@@ -671,11 +764,13 @@
                 amount: amount,
                 payer: payer,
                 participants: selectedParticipants,
-                time: timeString
+                time: timeString,
+                receiptImage: window.tempReceiptImage || "" // 영수증 이미지 첨부
             });
 
             titleInput.value = '';
             amountInput.value = '';
+            window.clearReceiptFile(); // 등록 후 파일 선택 초기화
             
             window.saveData();
         };
@@ -1106,10 +1201,18 @@
                                     <p class="text-[10px] md:text-[11px] text-slate-500 font-medium break-all leading-normal">
                                         참여 (${totalPortions}인): <span class="text-slate-700 font-semibold">${participantLabels}</span>
                                     </p>
-                                    <div class="flex items-center gap-2 text-[10px] md:text-[11px] text-slate-400">
-                                        <span><i class="fa-regular fa-user"></i> 결제자: <strong class="text-slate-600">${e.payer}</strong></span>
-                                        <span>•</span>
-                                        <span><i class="fa-regular fa-clock"></i> ${e.time}</span>
+                                    <div class="flex items-center justify-between gap-2 text-[10px] md:text-[11px] text-slate-400 flex-wrap">
+                                        <div class="flex items-center gap-2">
+                                            <span><i class="fa-regular fa-user"></i> 결제자: <strong class="text-slate-600">${e.payer}</strong></span>
+                                            <span>•</span>
+                                            <span><i class="fa-regular fa-clock"></i> ${e.time}</span>
+                                        </div>
+                                        <!-- [신규 추가] 영수증 존재 시 확인 버튼 노출 -->
+                                        ${e.receiptImage ? `
+                                            <button onclick="viewReceipt('${e.receiptImage}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-colors">
+                                                <i class="fa-solid fa-receipt"></i> 영수증 보기
+                                            </button>
+                                        ` : ''}
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0 self-center">
@@ -1178,7 +1281,7 @@
                                         
                                         <i class="fa-solid fa-arrow-right text-slate-300 text-[10px]"></i>
                                         
-                                        <!-- 받는 사람: 대칭 청록색 수령자 박스 -->
+                                        <!-- 받는 사람: '총무' 글자를 배제하고, 동일 사양의 청록색 수령자 박스로 대칭 출력 -->
                                         <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500' : 'bg-emerald-50 text-emerald-600'}">
                                             <i class="fa-solid fa-circle-user text-emerald-500 mr-1 text-[10px]"></i>${t.to}
                                         </span>
@@ -1199,6 +1302,7 @@
                     ? `<p class="text-xs text-slate-500 py-2"><i class="fa-solid fa-check-double text-emerald-500 mr-1"></i> 멤버간 주고받을 차액 송금이 없습니다. 완벽하게 정산 완료!</p>`
                     : `<div class="space-y-2">${listCardsHtml}</div>`;
 
+                // 요약 테이블 및 복잡한 구성 삭제 후 즉시 기존 박스 대칭 목록만 깔끔하게 노출
                 guideListEl.innerHTML = guideTitleAndCardsHtml;
             }
 
@@ -1291,6 +1395,29 @@
                         }).join('');
                     }
 
+                    // [요청 전격 반영]: 보관소 카드 내에 누적 첨부된 영수증 이미지 리스트를 각각의 썸네일(갤러리)로 렌더링
+                    const archivedReceipts = arch.expenses ? arch.expenses.filter(e => e.receiptImage) : [];
+                    let receiptsHtml = '';
+                    if (archivedReceipts.length > 0) {
+                        receiptsHtml = `
+                            <div class="space-y-1.5 pt-3 border-t border-slate-100">
+                                <p class="text-[11px] text-slate-600 font-semibold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-receipt text-slate-500"></i> 첨부된 영수증 (${archivedReceipts.length}개)
+                                </p>
+                                <div class="flex flex-wrap gap-2 mt-1.5">
+                                    ${archivedReceipts.map(e => `
+                                        <div class="relative group cursor-pointer hover:scale-105 active:scale-95 transition-all" onclick="window.viewArchivedReceipt(${arch.id}, ${e.id})">
+                                            <img src="${e.receiptImage}" alt="${e.title} 영수증" class="w-11 h-11 object-cover rounded-lg border border-slate-200 hover:border-indigo-500 transition-colors">
+                                            <div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[8px] text-center rounded-b-lg py-0.5 truncate max-w-[44px] px-0.5">
+                                                ${e.title}
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+
                     return `
                         <div class="bg-white border ${isIntermediate ? 'border-amber-200/80' : 'border-emerald-200/80'} p-4 rounded-2xl space-y-3.5 shadow-sm">
                             <div class="flex justify-between items-start gap-2">
@@ -1328,6 +1455,9 @@
                                     ${transfersDetailHtml}
                                 </div>
                             </div>
+
+                            <!-- 보관소 영수증 이미지 노출 -->
+                            ${receiptsHtml}
                         </div>
                     `;
                 }).join('');
