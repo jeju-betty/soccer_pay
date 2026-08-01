@@ -36,11 +36,11 @@
                 </div>
                 <h2 class="text-xl font-bold text-slate-900 tracking-tight">우리들의 여행 정산 총무</h2>
                 <p class="text-xs text-slate-500 leading-relaxed">
-                    실시간 클라우드 공유 정산방을 개설하여<br>13명의 친구들과 실시간으로 함께 정산해 보세요!
+                    실시간 클라우드 공유 정산방을 개설하여<br>실시간으로 함께 정산해 보세요!
                 </p>
             </div>
 
-            <!-- 정산 내용 입력 상자 (고성 대회 기반 인터랙션 제공) -->
+            <!-- 정산 내용 입력 상자 -->
             <div class="space-y-1.5 pt-1 text-left">
                 <label class="text-[11px] font-bold text-slate-500 flex items-center gap-1">
                     <i class="fa-solid fa-pen-to-square"></i> 이번 대회 이름 / 정산 제목
@@ -369,7 +369,7 @@
         // 영수증 base64 처리용 전역 임시 변수 및 헬퍼 함수
         window.tempReceiptImage = "";
 
-        // [용량 초과 에러 해결] 이미지 자동 리사이징 및 압축 엔진 추가
+        // 이미지 자동 리사이징 및 압축 엔진
         window.handleReceiptFileChange = function(input) {
             const file = input.files[0];
             const fileNameSpan = document.getElementById('receiptFileName');
@@ -395,7 +395,6 @@
                     let width = img.width;
                     let height = img.height;
                     
-                    // 최대 가로/세로 길이를 600px로 조절하여 불필요한 용량 축소
                     const max_size = 600;
                     if (width > height) {
                         if (width > max_size) {
@@ -414,7 +413,6 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // JPEG 0.6 고성능 압축을 적용하여 데이터 전송 한계를 완벽히 우회함 (수 MB -> 20KB대 축소)
                     window.tempReceiptImage = canvas.toDataURL('image/jpeg', 0.6);
                 };
                 img.src = e.target.result;
@@ -450,7 +448,6 @@
             }
         };
 
-        // 아카이브에서 안전하게 영수증을 역추적해 불러와 모달창에 띄우는 헬퍼 함수
         window.viewArchivedReceipt = function(archiveId, expenseId) {
             if (!window.state || !window.state.archives) return;
             const arch = window.state.archives.find(a => a.id === archiveId);
@@ -461,7 +458,6 @@
             }
         };
 
-        // 로컬 오프라인 전용 데이터 백업 복구기
         window.loadLocalBackup = function() {
             const hash = window.location.hash.replace('#', '').trim();
             if (hash) {
@@ -484,7 +480,6 @@
                     };
                 }
                 
-                // 데이터 무결성을 보장하기 위한 강제 구조 가드 추가
                 if (!window.state) window.state = {};
                 if (!window.state.tripTitle) window.state.tripTitle = '2026 고성 대회';
                 if (!window.state.members) window.state.members = [...DEFAULT_MEMBERS];
@@ -497,6 +492,11 @@
                 document.getElementById('homeScreen').classList.remove('flex');
                 
                 window.render(true);
+
+                // 방 입장/변경 시 파이어베이스 실시간 동기화 트리거
+                if (typeof window.initRoomSync === 'function') {
+                    window.initRoomSync();
+                }
             } else {
                 document.getElementById('homeScreen').classList.remove('hidden');
                 document.getElementById('homeScreen').classList.add('flex');
@@ -510,12 +510,10 @@
             }
         };
 
-        // 방 생성 버튼을 누르면 즉시 작동
         window.handleCreateRoomClick = function() {
             const titleInput = document.getElementById('initialTripTitle');
             let tripTitle = titleInput ? titleInput.value.trim() : '';
 
-            // 만약 기본값 상태 그대로 개설한다면, "(일정 입력)" 텍스트가 남지 않도록 보정
             if (tripTitle === '2026 고성 대회 (일정 입력)') {
                 tripTitle = '2026 고성 대회';
             }
@@ -526,7 +524,6 @@
                 newCode += letters.charAt(Math.floor(Math.random() * letters.length));
             }
 
-            // 해시 변경 시점에 동기화되도록 대기 변수에 정산명을 임시 세팅
             window.pendingTripTitle = tripTitle || '2026 고성 대회';
 
             window.location.hash = newCode;
@@ -574,15 +571,32 @@
     <!-- 2단계: 파이어베이스 실시간 동기화 모듈 (열쇠가 있을 때만 가동되며 없을 시 자연스럽게 통과) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // =========================================================================
-        // 🔑 [초간단 설정] 바로 아래의 null 자리에 파이어베이스의 { ... } 열쇠를 대입하세요!
-        // =========================================================================
-        let fbConfig = null; 
+        // 🔑 파이어베이스 콘솔에서 발급받은 설정 정보를 아래 개체(customFirebaseConfig)에 직접 붙여넣으세요!
+        const customFirebaseConfig = {
+  apiKey: "AIzaSyAyQh3vCgipwKAZdPtVZRmwq3t9qapy8H0",
+  authDomain: "travel-pay-69d2e.firebaseapp.com",
+  projectId: "travel-pay-69d2e",
+  storageBucket: "travel-pay-69d2e.firebasestorage.app",
+  messagingSenderId: "822682405166",
+  appId: "1:822682405166:web:82a1529a259a03761b12bf"
+}
 
-        let appId = 'travel-pay-custom';
+        let fbConfig = null; 
+        try {
+            // 사용자 지정 파이어베이스 키가 입력되어 있으면 해당 설정을 우선 사용합니다.
+            if (customFirebaseConfig && customFirebaseConfig.apiKey && customFirebaseConfig.apiKey !== "여기에_API_KEY를_붙여넣으세요") {
+                fbConfig = customFirebaseConfig;
+            } else if (typeof __firebase_config !== 'undefined') {
+                fbConfig = JSON.parse(__firebase_config);
+            }
+        } catch (e) {
+            console.error("Firebase config 로드 실패:", e);
+        }
+
+        let appId = typeof __app_id !== 'undefined' ? __app_id : 'travel-pay-custom';
         let db = null;
         let auth = null;
         let docRef = null;
@@ -590,7 +604,7 @@
 
         async function connectCloud() {
             if (!fbConfig || !fbConfig.apiKey) {
-                console.log("Firebase 연결 열쇠가 비어있어 완벽한 로컬 오프라인 전용 모드로 작동합니다.");
+                console.log("Firebase 연결 설정이 없어 오프라인 백업 모드로 작동합니다.");
                 return;
             }
 
@@ -599,24 +613,31 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                await signInAnonymously(auth);
+                // 인증 진행 (커스텀 토큰 우선, 없을 시 익명 로그인)
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
 
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         window.firebaseConfigured = true;
-                        document.getElementById('syncStatusDot').className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm animate-pulse";
-                        document.getElementById('syncStatusText').innerText = "실시간 클라우드 공유 중";
+                        const syncDot = document.getElementById('syncStatusDot');
+                        const syncText = document.getElementById('syncStatusText');
+                        if (syncDot) syncDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm animate-pulse";
+                        if (syncText) syncText.innerText = "실시간 클라우드 공유 중";
                         initRoomSync();
                     }
                 });
             } catch (e) {
-                console.error("클라우드 접속 에러 (키 정보 오류 가능성):", e);
+                console.error("클라우드 접속 에러:", e);
             }
         }
 
         function initRoomSync() {
             const hash = window.location.hash.replace('#', '').trim();
-            if (!hash) return;
+            if (!hash || !db) return;
 
             docRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', hash);
 
@@ -631,7 +652,6 @@
                     window.state.completedTransfers = data.completedTransfers || {};
                     window.state.archives = data.archives || [];
                 } else {
-                    // 데이터 생성 경쟁 레이스 컨디션 방지 적용
                     const fallbackTitle = window.state.tripTitle || window.pendingTripTitle || '2026 고성 대회';
                     window.state = {
                         tripTitle: fallbackTitle,
@@ -649,9 +669,13 @@
             });
         }
 
-        // 실시간 클라우드 전용 저장 인터페이스 재정의
+        // 외부(방 이동 함수)에서 수동 트리거할 수 있도록 노출
+        window.initRoomSync = initRoomSync;
+
         window.saveData = async function() {
-            window.state.members.sort((a, b) => a.localeCompare(b, 'ko'));
+            if (window.state.members) {
+                window.state.members.sort((a, b) => a.localeCompare(b, 'ko'));
+            }
             
             if (window.firebaseConfigured && docRef) {
                 try {
@@ -664,14 +688,12 @@
             }
         };
 
-        // 로드 즉시 클라우드 연동 가동
         connectCloud();
     </script>
 
     <!-- 3단계: 정산 어플리케이션 상세 렌더링 및 비즈니스 연산 로직 -->
     <script>
         
-        // 정산제목 수정용 모달/창 유틸리티
         window.editTripTitle = function() {
             const currentTitle = window.state.tripTitle || '2026 고성 대회';
             const newTitle = prompt('수정할 정산의 명칭이나 대회 제목을 입력하세요:', currentTitle);
@@ -806,12 +828,12 @@
                 payer: payer,
                 participants: selectedParticipants,
                 time: timeString,
-                receiptImage: window.tempReceiptImage || "" // 영수증 이미지 첨부
+                receiptImage: window.tempReceiptImage || ""
             });
 
             titleInput.value = '';
             amountInput.value = '';
-            window.clearReceiptFile(); // 등록 후 파일 선택 초기화
+            window.clearReceiptFile();
             
             window.saveData();
         };
@@ -835,7 +857,6 @@
             );
         };
 
-        // 송금 최적화 및 원단위 완벽 일치/반올림 정합성 연산 알고리즘
         window.getCalculatedTransfers = function() {
             const gross = {}; 
             
@@ -857,7 +878,6 @@
                 if (participants && participants.length > 0) {
                     const totalPortions = participants.reduce((sum, p) => sum + p.count, 0);
                     if (totalPortions > 0) {
-                        // 원단위 정합성을 위한 원단위 반올림(Math.round) 수행
                         const splitAmount = Math.round(amount / totalPortions);
 
                         participants.forEach(p => {
@@ -870,7 +890,6 @@
                 }
             });
 
-            // 본인 입금(결제자와 참여자가 같은 금액) 추출
             const selfTransfers = [];
             window.state.members.forEach(m => {
                 const selfAmt = gross[m][m];
@@ -887,7 +906,6 @@
             const rawTransfers = [];
             window.state.members.forEach(from => {
                 window.state.members.forEach(to => {
-                    // 본인 입금 외 순수 타인 송금 흐름만 rawTransfers에 가공
                     if (from !== to) {
                         const amt = gross[from][to];
                         if (amt > 0) {
@@ -901,7 +919,6 @@
                 });
             });
 
-            // 상호 채무 상쇄 프로세스 가동
             const balances = {};
             window.state.members.forEach(m => { balances[m] = 0; });
             
@@ -945,10 +962,8 @@
                 if (creditor.balance === 0) cIdx++;
             }
 
-            // 간소화 송금 내역에 본인 입금 내역 결합
             const finalTransfers = [...simplifiedTransfers, ...selfTransfers];
 
-            // 1차적으로 보낸 사람 이름 가나다 순 정렬
             finalTransfers.sort((a, b) => {
                 return a.from.localeCompare(b.from, 'ko');
             });
@@ -996,7 +1011,6 @@
             }
             
             billText += `\n------------------------------------\n`;
-            // 실제 수령 타인은 본인 입금 정산 대상을 배제하고 필터링하여 안전하게 산출
             const realTransfers = transfers.filter(t => !t.isSelf);
             if (realTransfers.length > 0) {
                 const accountHolderVal = realTransfers[0].to;
@@ -1157,7 +1171,6 @@
             );
         };
 
-        // UI 실시간 동적 렌더러 (비정상적인 유저 이탈 및 강제 초기화 예외 가드 결합)
         window.render = function(resetSelection = false) {
             if (!window.state) window.state = {};
             if (!window.state.members) window.state.members = [...DEFAULT_MEMBERS];
@@ -1245,7 +1258,6 @@
             } else {
                 historyListEl.innerHTML = window.state.expenses.map(e => {
                     const totalPortions = e.participants.reduce((sum, p) => sum + p.count, 0);
-                    // 1원단위 반올림(Math.round) 처리 적용
                     const individualShare = totalPortions > 0 ? Math.round(e.amount / totalPortions) : 0;
                     const participantLabels = e.participants.map(p => p.count > 1 ? `${p.name}(${p.count}인)` : p.name).join(', ');
 
@@ -1268,7 +1280,6 @@
                                             <span>•</span>
                                             <span><i class="fa-regular fa-clock"></i> ${e.time}</span>
                                         </div>
-                                        <!-- 영수증 존재 시 확인 버튼 노출 -->
                                         ${e.receiptImage ? `
                                             <button onclick="viewReceipt('${e.receiptImage}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-colors">
                                                 <i class="fa-solid fa-receipt"></i> 영수증 보기
@@ -1309,14 +1320,10 @@
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-3.5 rounded-xl border border-amber-100/30 text-xs shadow-sm transition-all duration-300 gap-3 ${isDone ? 'opacity-50 bg-slate-50/50' : ''}">
                                 <div class="space-y-1">
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <!-- 보내는 사람: 분홍색 유저 박스 -->
                                         <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500' : 'bg-rose-50 text-rose-600'}">
                                             <i class="fa-solid fa-user text-rose-400 mr-1 text-[10px]"></i>${t.from}
                                         </span>
-                                        
                                         <i class="fa-solid fa-arrow-right text-slate-300 text-[10px]"></i>
-                                        
-                                        <!-- 받는 사람: 분홍색 유저 박스 (자가 소비) -->
                                         <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500' : 'bg-rose-50 text-rose-600'}">
                                             <i class="fa-solid fa-user text-rose-400 mr-1 text-[10px]"></i>${t.to} <span class="text-[9px] font-normal">(본인)</span>
                                         </span>
@@ -1335,14 +1342,10 @@
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-3.5 rounded-xl border border-indigo-100/30 text-xs shadow-sm transition-all duration-300 gap-3 ${isDone ? 'opacity-50 bg-slate-50/50' : ''}">
                                 <div class="space-y-1">
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <!-- 보내는 사람: 분홍색 유저 박스 적용 -->
                                         <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500' : 'bg-rose-50 text-rose-600'}">
                                             <i class="fa-solid fa-user text-rose-400 mr-1 text-[10px]"></i>${t.from}
                                         </span>
-                                        
                                         <i class="fa-solid fa-arrow-right text-slate-300 text-[10px]"></i>
-                                        
-                                        <!-- 받는 사람: '총무' 글자를 배제하고, 동일 사양의 청록색 수령자 박스로 대칭 출력 -->
                                         <span class="font-bold px-2 py-0.5 rounded-md ${isDone ? 'bg-slate-200 text-slate-500' : 'bg-emerald-50 text-emerald-600'}">
                                             <i class="fa-solid fa-circle-user text-emerald-500 mr-1 text-[10px]"></i>${t.to}
                                         </span>
@@ -1363,7 +1366,6 @@
                     ? `<p class="text-xs text-slate-500 py-2"><i class="fa-solid fa-check-double text-emerald-500 mr-1"></i> 멤버간 주고받을 차액 송금이 없습니다. 완벽하게 정산 완료!</p>`
                     : `<div class="space-y-2">${listCardsHtml}</div>`;
 
-                // 요약 테이블 및 복잡한 구성 삭제 후 즉시 기존 박스 대칭 목록만 깔끔하게 노출
                 guideListEl.innerHTML = guideTitleAndCardsHtml;
             }
 
@@ -1459,7 +1461,6 @@
                         }).join('');
                     }
 
-                    // 보관소 카드 내에 누적 첨부된 영수증 이미지 리스트를 각각의 썸네일(갤러리)로 렌더링 (방어 가드 장착)
                     const archivedReceipts = arch.expenses ? arch.expenses.filter(e => e && e.receiptImage) : [];
                     let receiptsHtml = '';
                     if (archivedReceipts.length > 0) {
@@ -1520,7 +1521,6 @@
                                 </div>
                             </div>
 
-                            <!-- 보관소 영수증 이미지 노출 -->
                             ${receiptsHtml}
                         </div>
                     `;
