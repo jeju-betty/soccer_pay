@@ -321,7 +321,7 @@
             <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
                 <i class="fa-solid fa-box-archive text-emerald-500"></i> 최종 정산 마감 및 보관
             </h3>
-            <p class="text-xs text-slate-500">이번 여행의 이름을 입력해 주세요. 누적 지출와 송금 가이드 완료 정보가 아카이브 보관실로 이동합니다.</p>
+            <p class="text-xs text-slate-500">이번 여행의 이름을 입력해 주세요. 누적 지출와 송금 내역 완료 정보가 아카이브 보관실로 이동합니다.</p>
             <input type="text" id="archiveTripNameInput" placeholder="예: 2026 대회" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 outline-none text-sm">
             <div class="flex justify-end gap-2.5 pt-1">
                 <button onclick="closeFinalArchivePrompt()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-semibold rounded-lg transition-colors">취소</button>
@@ -864,6 +864,7 @@
             );
         };
 
+        // 정산 송금 계산 (멤버별 금액 끝자리 통일을 위해 올림 Math.ceil 처리)
         window.getCalculatedTransfers = function() {
             const gross = {}; 
             
@@ -882,18 +883,11 @@
                 if (participants && participants.length > 0) {
                     const totalPortions = participants.reduce((sum, p) => sum + p.count, 0);
                     if (totalPortions > 0) {
-                        const splitAmount = Math.floor(amount / totalPortions);
-                        const remainder = amount % totalPortions;
+                        // 모든 멤버가 동일한 끝자리를 갖도록 올림(Math.ceil) 처리
+                        const splitAmount = Math.ceil(amount / totalPortions);
 
-                        let portionIndex = 0;
                         participants.forEach(p => {
-                            let share = splitAmount * p.count;
-                            for (let k = 0; k < p.count; k++) {
-                                if (portionIndex < remainder) {
-                                    share += 1;
-                                }
-                                portionIndex++;
-                            }
+                            const share = splitAmount * p.count;
                             if (gross[p.name] && gross[p.name][payer] !== undefined) {
                                 gross[p.name][payer] += share;
                             }
@@ -949,7 +943,7 @@
             billText += `📌 지출 요약 리스트:\n`;
             window.state.expenses.slice().reverse().forEach((e, idx) => {
                 const totalPortions = e.participants.reduce((sum, p) => sum + p.count, 0);
-                const individualShare = Math.floor(e.amount / totalPortions);
+                const individualShare = Math.ceil(e.amount / totalPortions);
                 const participantLabel = e.participants.map(p => p.count > 1 ? `${p.name}(${p.count}인)` : p.name).join(', ');
                 
                 billText += ` - [${idx + 1}] ${e.title} : ${e.amount.toLocaleString()}원\n`;
@@ -1205,7 +1199,7 @@
             } else {
                 historyListEl.innerHTML = window.state.expenses.map(e => {
                     const totalPortions = e.participants.reduce((sum, p) => sum + p.count, 0);
-                    const individualShare = totalPortions > 0 ? Math.floor(e.amount / totalPortions) : 0;
+                    const individualShare = totalPortions > 0 ? Math.ceil(e.amount / totalPortions) : 0;
                     const participantLabels = e.participants.map(p => p.count > 1 ? `${p.name}(${p.count}인)` : p.name).join(', ');
 
                     return `
