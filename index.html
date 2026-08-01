@@ -149,7 +149,7 @@
                 <div class="space-y-3.5">
                     <div>
                         <label class="text-xs font-semibold text-slate-500 block mb-1">지출 내용</label>
-                        <input type="text" id="expenseTitle" placeholder="예: 13일 점심" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm transition-all">
+                        <input type="text" id="expenseTitle" placeholder="예: 오늘 점심" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm transition-all">
                     </div>
                     <div>
                         <label class="text-xs font-semibold text-slate-500 block mb-1">지출 금액 (원)</label>
@@ -250,11 +250,11 @@
                 </div>
             </section>
 
-            <!-- 2. 추천 송금 가이드 -->
+            <!-- 2. 송금 내역 (입금 확인 버튼 적용) -->
             <section class="bg-slate-100/50 border border-slate-200/50 p-4 rounded-2xl">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-xs md:text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                        <i class="fa-solid fa-paper-plane text-slate-500"></i> 추천 송금 가이드 <span class="text-[9px] md:text-[10px] font-normal text-slate-500">(완료 후 체크해주세요)</span>
+                        <i class="fa-solid fa-paper-plane text-slate-500"></i> 송금 내역 <span class="text-[9px] md:text-[10px] font-normal text-slate-500">(송금 후 '입금 확인' 버튼을 눌러주세요)</span>
                     </h2>
                 </div>
                 <div id="transferGuideList" class="space-y-2 max-h-[250px] overflow-y-auto smooth-scroll pr-1">
@@ -957,13 +957,16 @@
             });
             billText += `\n------------------------------------\n\n`;
 
-            billText += `💬 추천 송금 목록:\n`;
-            const validTransfers = transfers.filter(t => t.from !== t.to);
-            if (validTransfers.length === 0) {
+            billText += `💬 송금 목록:\n`;
+            if (transfers.length === 0) {
                 billText += ` - 서로 주고받을 정산금이 존재하지 않습니다. 깔끔합니다!\n`;
             } else {
-                validTransfers.forEach(t => {
-                    billText += ` 💸 [${t.from}] ➔ [${t.to}]  :  ${t.amount.toLocaleString()}원\n`;
+                transfers.forEach(t => {
+                    if (t.from === t.to) {
+                        billText += ` 👤 [${t.from}] 본인 부담 지출 (송금 불필요) : ${t.amount.toLocaleString()}원\n`;
+                    } else {
+                        billText += ` 💸 [${t.from}] ➔ [${t.to}] : ${t.amount.toLocaleString()}원\n`;
+                    }
                 });
             }
             billText += `\n함께한 순간은 추억으로, 비용은 공평하게.`;
@@ -1074,8 +1077,10 @@
         window.toggleTransferStatus = function(uniqueKey) {
             if (window.state.completedTransfers[uniqueKey]) {
                 delete window.state.completedTransfers[uniqueKey];
+                showToastAlert("입금 미완료 상태로 변경되었습니다.");
             } else {
                 window.state.completedTransfers[uniqueKey] = true;
+                showToastAlert("입금 확인 완료!");
             }
             window.saveData();
         };
@@ -1090,10 +1095,10 @@
 
             if (arch.completedTransfers[uniqueKey]) {
                 delete arch.completedTransfers[uniqueKey];
-                showToastAlert("미송금 상태로 변경되었습니다.");
+                showToastAlert("입금 미완료 상태로 변경되었습니다.");
             } else {
                 arch.completedTransfers[uniqueKey] = true;
-                showToastAlert("송금 완료 확인 완료!");
+                showToastAlert("입금 확인 완료!");
             }
 
             window.saveData();
@@ -1116,6 +1121,13 @@
             const currentTitle = window.state.tripTitle || '2026 대회';
             document.getElementById('tripTitleDisplay').innerText = currentTitle;
             document.getElementById('spentCardTitle').innerText = currentTitle;
+
+            // 지출 내용 예시 문구에 현재 일자(일)를 동적으로 반영
+            const expenseTitleInput = document.getElementById('expenseTitle');
+            if (expenseTitleInput) {
+                const todayDay = new Date().getDate();
+                expenseTitleInput.placeholder = `예: ${todayDay}일 점심`;
+            }
 
             const memberListEl = document.getElementById('memberList');
             if (window.state.members.length === 0) {
@@ -1242,27 +1254,48 @@
             const transfers = window.getCalculatedTransfers();
             const guideListEl = document.getElementById('transferGuideList');
             
-            const validTransfers = transfers.filter(t => t.from !== t.to);
-            if (validTransfers.length === 0) {
+            if (transfers.length === 0) {
                 guideListEl.innerHTML = `<p class="text-xs text-slate-500 py-1"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> 주고받을 잔액이 없거나 정산이 완료되었습니다.</p>`;
             } else {
-                guideListEl.innerHTML = validTransfers.map(t => {
+                guideListEl.innerHTML = transfers.map(t => {
+                    const isSelf = (t.from === t.to);
                     const uniqueTransferKey = `${t.from}-${t.to}-${t.amount}`;
-                    const isDone = !!window.state.completedTransfers[uniqueTransferKey];
+                    const isDone = isSelf || !!window.state.completedTransfers[uniqueTransferKey];
+
+                    // 오서준 -> 오서준 등 본인 결제건 처리
+                    if (isSelf) {
+                        return `
+                            <div class="flex items-center justify-between p-2.5 rounded-xl border bg-slate-50/90 border-slate-200 text-slate-500 text-xs">
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <span class="bg-slate-200 text-slate-600 font-bold text-[10px] px-2 py-0.5 rounded-md shrink-0">본인</span>
+                                    <div class="font-medium truncate">
+                                        <span class="font-bold text-slate-700">${t.from}</span> (본인 부담 지출분 - 송금 불필요)
+                                    </div>
+                                </div>
+                                <span class="font-bold text-slate-600 text-xs shrink-0 ml-2">${t.amount.toLocaleString()}원</span>
+                            </div>
+                        `;
+                    }
 
                     return `
-                        <div class="flex items-center justify-between p-2.5 rounded-xl border ${isDone ? 'bg-slate-200/60 border-slate-200 text-slate-400 line-through' : 'bg-white border-slate-200 text-slate-700'} transition-all text-xs">
-                            <div class="flex items-center gap-2 min-w-0 flex-1">
+                        <div class="flex items-center justify-between p-2.5 rounded-xl border ${isDone ? 'bg-slate-100/90 border-slate-200 text-slate-400' : 'bg-white border-slate-200 text-slate-700 shadow-sm'} transition-all text-xs">
+                            <div class="flex items-center gap-2 min-w-0 flex-1 pr-2">
                                 <button onclick="toggleTransferStatus('${uniqueTransferKey}')" class="w-5 h-5 rounded-md flex items-center justify-center border ${isDone ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-white hover:border-slate-400'} transition-colors shrink-0">
                                     <i class="fa-solid fa-check text-[10px] ${isDone ? '' : 'hidden'}"></i>
                                 </button>
-                                <div class="font-medium truncate">
-                                    <span class="font-bold text-slate-800">${t.from}</span>
+                                <div class="font-medium truncate ${isDone ? 'line-through text-slate-400' : ''}">
+                                    <span class="font-bold ${isDone ? 'text-slate-500' : 'text-slate-800'}">${t.from}</span>
                                     <i class="fa-solid fa-arrow-right text-[10px] mx-1 text-slate-400"></i>
-                                    <span class="font-bold text-slate-800">${t.to}</span>
+                                    <span class="font-bold ${isDone ? 'text-slate-500' : 'text-slate-800'}">${t.to}</span>
                                 </div>
                             </div>
-                            <span class="font-extrabold ${isDone ? 'text-slate-400' : 'text-slate-900'} text-xs shrink-0 ml-2">${t.amount.toLocaleString()}원</span>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span class="font-extrabold ${isDone ? 'text-slate-400 line-through' : 'text-slate-900'} text-xs">${t.amount.toLocaleString()}원</span>
+                                <button onclick="toggleTransferStatus('${uniqueTransferKey}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${isDone ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm active:scale-95'}">
+                                    <i class="fa-solid ${isDone ? 'fa-circle-check text-emerald-600' : 'fa-check'} text-[10px]"></i>
+                                    <span>${isDone ? '입금 완료' : '입금 확인'}</span>
+                                </button>
+                            </div>
                         </div>
                     `;
                 }).join('');
@@ -1276,7 +1309,7 @@
                 `;
             } else {
                 archiveContainer.innerHTML = window.state.archives.map(arch => {
-                    const archTransfers = (arch.transfers || []).filter(t => t.from !== t.to);
+                    const archTransfers = arch.transfers || [];
                     const isFinal = arch.type === 'final';
                     
                     return `
@@ -1312,19 +1345,33 @@
                             </div>
 
                             <div class="space-y-1.5">
-                                <p class="text-[11px] font-bold text-slate-600">추천 송금 가이드</p>
+                                <p class="text-[11px] font-bold text-slate-600">송금 및 입금 현황</p>
                                 ${archTransfers.length === 0 ? '<p class="text-[11px] text-slate-400">송금 내역이 없습니다.</p>' : archTransfers.map(t => {
+                                    const isSelf = (t.from === t.to);
+                                    if (isSelf) {
+                                        return `
+                                            <div class="flex items-center justify-between p-2 rounded-lg border bg-slate-50 border-slate-200 text-slate-500 text-xs">
+                                                <span class="truncate"><span class="bg-slate-200 text-slate-600 font-bold text-[9px] px-1.5 py-0.5 rounded mr-1">본인</span>${t.from} (본인 부담분)</span>
+                                                <span class="font-bold">${t.amount.toLocaleString()}원</span>
+                                            </div>
+                                        `;
+                                    }
                                     const uniqueKey = `${t.from}-${t.to}-${t.amount}`;
                                     const isDone = arch.completedTransfers && !!arch.completedTransfers[uniqueKey];
                                     return `
-                                        <div class="flex items-center justify-between p-2 rounded-lg border ${isDone ? 'bg-slate-100 border-slate-200 text-slate-400 line-through' : 'bg-white border-slate-200 text-slate-700'} text-xs">
+                                        <div class="flex items-center justify-between p-2 rounded-lg border ${isDone ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-white border-slate-200 text-slate-700'} text-xs">
                                             <div class="flex items-center gap-2 min-w-0">
                                                 <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="w-4 h-4 rounded flex items-center justify-center border ${isDone ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-white'} transition-colors shrink-0">
                                                     <i class="fa-solid fa-check text-[8px] ${isDone ? '' : 'hidden'}"></i>
                                                 </button>
-                                                <span class="truncate">${t.from} ➔ ${t.to}</span>
+                                                <span class="truncate ${isDone ? 'line-through' : ''}">${t.from} ➔ ${t.to}</span>
                                             </div>
-                                            <span class="font-bold shrink-0">${t.amount.toLocaleString()}원</span>
+                                            <div class="flex items-center gap-2 shrink-0">
+                                                <span class="font-bold ${isDone ? 'line-through' : ''}">${t.amount.toLocaleString()}원</span>
+                                                <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="px-2 py-0.5 rounded text-[10px] font-bold ${isDone ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-600 text-white'}">
+                                                    ${isDone ? '입금 완료' : '입금 확인'}
+                                                </button>
+                                            </div>
                                         </div>
                                     `;
                                 }).join('')}
