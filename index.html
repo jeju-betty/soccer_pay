@@ -36,7 +36,7 @@
                 </div>
                 <h2 class="text-xl font-bold text-slate-900 tracking-tight">우리들의 여행 정산 총무</h2>
                 <p class="text-xs text-slate-500 leading-relaxed">
-                    실시간 클라우드 공유 정산방을 개설하여<br>13명의 친구들과 실시간으로 함께 정산해 보세요!
+                    실시간 클라우드 공유 정산방을 개설하여<br>친구들과 함께 실시간으로 정산해 보세요!
                 </p>
             </div>
 
@@ -97,7 +97,11 @@
                     <span id="roomCodeDisplay" class="text-amber-400 text-[10px] md:text-xs font-bold uppercase">방코드: 연결대기</span>
                 </div>
             </div>
-            <div class="flex items-center gap-2 shrink-0 self-center">
+            <div class="flex items-center gap-1.5 sm:gap-2 shrink-0 self-center flex-wrap justify-end">
+                <!-- HTML 다운로드 버튼 -->
+                <button onclick="downloadHTMLFile()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-download"></i> <span class="hidden sm:inline">HTML 다운로드</span>
+                </button>
                 <button onclick="copyRoomLink()" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1">
                     <i class="fa-solid fa-share-nodes"></i> <span class="hidden xs:inline">링크 복사</span>
                 </button>
@@ -137,7 +141,7 @@
                 </div>
             </section>
 
-            <!-- 지출 입력 -->
+            <!-- 지출 입력 (영수증 이미지 첨부 포함) -->
             <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                 <h2 class="text-sm font-bold flex items-center gap-1.5 text-slate-700 mb-3">
                     <i class="fa-solid fa-receipt text-slate-500"></i> 지출 상세 등록
@@ -152,6 +156,27 @@
                         <input type="number" id="expenseAmount" placeholder="원 단위 숫자만 입력" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm transition-all">
                     </div>
                     
+                    <!-- 영수증 사진 첨부 (선택사항) -->
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500 block mb-1 flex items-center gap-1">
+                            <i class="fa-solid fa-camera text-slate-400"></i> 영수증 사진 첨부 <span class="text-[10px] text-slate-400 font-normal">(선택)</span>
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <label for="receiptImageInput" class="flex-1 cursor-pointer bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 rounded-lg p-2.5 text-center transition-all flex items-center justify-center gap-2 text-xs text-slate-600">
+                                <i class="fa-solid fa-paperclip text-slate-400"></i>
+                                <span id="receiptFileName">영수증 사진 촬영/선택</span>
+                            </label>
+                            <input type="file" id="receiptImageInput" accept="image/*" class="hidden" onchange="handleReceiptImageSelect(this)">
+                            <button type="button" id="clearReceiptBtn" onclick="clearReceiptImage()" class="hidden text-slate-400 hover:text-red-500 p-2 text-xs">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <!-- 미리보기 섬네일 -->
+                        <div id="receiptPreviewContainer" class="hidden mt-2 relative">
+                            <img id="receiptPreviewImg" src="" alt="영수증 미리보기" class="h-20 rounded-lg border border-slate-200 object-cover shadow-sm">
+                        </div>
+                    </div>
+
                     <!-- 결제한 사람 선택 -->
                     <div>
                         <label class="text-xs font-semibold text-slate-500 block mb-1">누가 결제했나요?</label>
@@ -215,7 +240,7 @@
             <section class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 <div class="px-4 py-3 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
                     <h2 class="font-bold text-slate-700 text-xs md:text-sm flex items-center gap-1.5">
-                        <i class="fa-solid fa-list-ul text-slate-500"></i> 누적 지출 내역 <span class="text-[10px] text-slate-400 font-normal">(1/N 금액 상세 표시)</span>
+                        <i class="fa-solid fa-list-ul text-slate-500"></i> 누적 지출 내역 <span class="text-[10px] text-slate-400 font-normal">(1/N 금액 및 영수증 확인)</span>
                     </h2>
                     <span class="text-[10px] text-slate-400 font-medium" id="lastUpdated">최근 업데이트 없음</span>
                 </div>
@@ -250,6 +275,16 @@
             </div>
         </div>
     </section>
+
+    <!-- 영수증 크게 보기 전용 모달 -->
+    <div id="receiptModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 p-4" onclick="closeReceiptModal()">
+        <div class="relative max-w-lg w-full max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
+            <button onclick="closeReceiptModal()" class="absolute -top-10 right-0 text-white text-2xl p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <img id="modalReceiptImg" src="" alt="영수증 원본" class="max-h-[85vh] w-auto max-w-full rounded-xl shadow-2xl object-contain bg-white">
+        </div>
+    </div>
 
     <!-- 중간 정산 공유 및 리셋을 위한 전용 모달 -->
     <div id="intermediateModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4">
@@ -330,6 +365,22 @@
 
         window.roomId = '';
         window.firebaseConfigured = false;
+        window.currentReceiptBase64 = '';
+
+        // HTML 파일 자체 다운로드 지원 함수
+        window.downloadHTMLFile = function() {
+            const htmlContent = document.documentElement.outerHTML;
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'travel_pay.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToastAlert("index.html 파일 다운로드가 시작되었습니다!");
+        };
 
         // UI 유틸리티 (알림 및 컨펌 모달)
         window.showToastAlert = function(msg) {
@@ -407,13 +458,6 @@
             }
         };
 
-        window.saveLocalBackup = function() {
-            if (window.roomId) {
-                localStorage.setItem('travelPay_offlineBackup_' + window.roomId, JSON.stringify(window.state));
-            }
-            window.render(false);
-        };
-
         // 방 생성 버튼 작동
         window.handleCreateRoomClick = function() {
             const titleInput = document.getElementById('initialTripTitle');
@@ -479,7 +523,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 파이어베이스 설정 객체 적용
+        // 지정된 파이어베이스 설정 객체 적용
         const fbConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyAyQh3vCgipwKAZdPtVZRmwq3t9qapy8H0",
             authDomain: "travel-pay-69d2e.firebaseapp.com",
@@ -489,7 +533,6 @@
             appId: "1:822682405166:web:82a1529a259a03761b12bf"
         };
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'travel-pay-custom';
         let db = null;
         let auth = null;
         let docRef = null;
@@ -497,7 +540,7 @@
 
         async function connectCloud() {
             if (!fbConfig || !fbConfig.apiKey) {
-                console.log("Firebase 설정이 비어있어 완벽한 로컬 오프라인 모드로 작동합니다.");
+                console.log("Firebase 설정이 없어 로컬 오프라인 모드로 가동됩니다.");
                 return;
             }
 
@@ -522,6 +565,7 @@
                 });
             } catch (e) {
                 console.error("클라우드 접속 에러:", e);
+                showToastAlert("클라우드 접속 실패. 파이어베이스 권한/규칙 설정을 확인해주세요.");
             }
         }
 
@@ -529,7 +573,7 @@
             const hash = window.location.hash.replace('#', '').trim();
             if (!hash) return;
 
-            docRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', hash);
+            docRef = doc(db, 'trips', hash);
 
             if (unsubscribeDoc) unsubscribeDoc();
             
@@ -556,38 +600,109 @@
                 window.render(false);
             }, (err) => {
                 console.error("실시간 공유 스냅샷 오류:", err);
+                showToastAlert("클라우드 데이터를 불러오지 못했습니다. 파이어베이스 규칙을 확인하세요.");
             });
         }
 
-        // 실시간 클라우드 전용 저장 인터페이스
+        // 실시간 클라우드 저장
         window.saveData = async function() {
             window.state.members.sort((a, b) => a.localeCompare(b, 'ko'));
             
-            // 화면에 즉시 변경사항 반영 (낙관적 UI)
+            // 낙관적 UI 즉시 렌더링
             window.render(false);
 
-            // 로컬 스토리지 백업
             if (window.roomId) {
                 localStorage.setItem('travelPay_offlineBackup_' + window.roomId, JSON.stringify(window.state));
             }
 
-            // 클라우드 데이터 동기화
             if (window.firebaseConfigured && docRef) {
                 try {
                     await setDoc(docRef, window.state);
                 } catch (e) {
                     console.error("클라우드 업로드 실패:", e);
+                    showToastAlert("클라우드 저장 실패! Firebase Rules에서 allow read, write: if true; 인지 확인해 주세요.");
                 }
             }
         };
 
-        // 클라우드 연동 가동
         connectCloud();
     </script>
 
     <!-- 3단계: 정산 어플리케이션 상세 렌더링 및 비즈니스 연산 로직 -->
     <script>
-        
+        // 영수증 사진 크기 압축 및 Base64 변환
+        window.handleReceiptImageSelect = function(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                showToastAlert('이미지 파일만 선택해 주세요.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const maxPixel = 800; // 가로/세로 최대 800px 축소하여 파이어베이스용 데이터 최적화
+
+                    if (width > height) {
+                        if (width > maxPixel) {
+                            height = Math.round((height * maxPixel) / width);
+                            width = maxPixel;
+                        }
+                    } else {
+                        if (height > maxPixel) {
+                            width = Math.round((width * maxPixel) / height);
+                            height = maxPixel;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // 0.6 품질의 JPEG 압축
+                    window.currentReceiptBase64 = canvas.toDataURL('image/jpeg', 0.6);
+
+                    // 미리보기 표시
+                    document.getElementById('receiptPreviewImg').src = window.currentReceiptBase64;
+                    document.getElementById('receiptPreviewContainer').classList.remove('hidden');
+                    document.getElementById('receiptFileName').innerText = file.name;
+                    document.getElementById('clearReceiptBtn').classList.remove('hidden');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.clearReceiptImage = function() {
+            window.currentReceiptBase64 = '';
+            document.getElementById('receiptImageInput').value = '';
+            document.getElementById('receiptFileName').innerText = '영수증 사진 촬영/선택';
+            document.getElementById('receiptPreviewContainer').classList.add('hidden');
+            document.getElementById('clearReceiptBtn').classList.add('hidden');
+            document.getElementById('receiptPreviewImg').src = '';
+        };
+
+        window.openReceiptModal = function(imgSrc) {
+            if (!imgSrc) return;
+            document.getElementById('modalReceiptImg').src = imgSrc;
+            const modal = document.getElementById('receiptModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeReceiptModal = function() {
+            const modal = document.getElementById('receiptModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
         window.editTripTitle = function() {
             const currentTitle = window.state.tripTitle || '2026 대회';
             const newTitle = prompt('수정할 정산의 명칭이나 여행 제목을 입력하세요:', currentTitle);
@@ -720,13 +835,16 @@
                 amount: amount,
                 payer: payer,
                 participants: selectedParticipants,
-                time: timeString
+                time: timeString,
+                receiptImage: window.currentReceiptBase64 || ''
             });
 
             titleInput.value = '';
             amountInput.value = '';
+            window.clearReceiptImage();
             
             window.saveData();
+            showToastAlert('지출 내역이 성공적으로 등록되었습니다.');
         };
 
         window.removeExpense = function(id) {
@@ -1087,6 +1205,11 @@
                                         <span class="bg-sky-50 text-sky-700 border border-sky-100 text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0">
                                             1인당 ${individualShare.toLocaleString()}원
                                         </span>
+                                        ${e.receiptImage ? `
+                                            <button onclick="openReceiptModal('${e.receiptImage}')" class="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-colors flex items-center gap-1">
+                                                <i class="fa-solid fa-receipt text-[8px]"></i> 영수증 보기
+                                            </button>
+                                        ` : ''}
                                     </div>
                                     <p class="text-[10px] md:text-[11px] text-slate-500 font-medium break-all leading-normal">
                                         참여 (${totalPortions}인): <span class="text-slate-700 font-semibold">${participantLabels}</span>
@@ -1174,9 +1297,16 @@
                             <div class="bg-slate-50 p-3 rounded-xl space-y-1.5 text-xs">
                                 <p class="text-[11px] font-bold text-slate-600 mb-1">정산 내역 (${arch.expenses ? arch.expenses.length : 0}건)</p>
                                 ${arch.expenses ? arch.expenses.map(e => `
-                                    <div class="flex justify-between text-slate-600 text-[11px]">
+                                    <div class="flex justify-between items-center text-slate-600 text-[11px]">
                                         <span class="truncate max-w-[200px]">${e.title} (${e.payer})</span>
-                                        <span class="font-semibold shrink-0">${e.amount.toLocaleString()}원</span>
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            ${e.receiptImage ? `
+                                                <button onclick="openReceiptModal('${e.receiptImage}')" class="text-amber-600 hover:underline text-[10px]">
+                                                    [영수증]
+                                                </button>
+                                            ` : ''}
+                                            <span class="font-semibold">${e.amount.toLocaleString()}원</span>
+                                        </div>
                                     </div>
                                 `).join('') : ''}
                             </div>
