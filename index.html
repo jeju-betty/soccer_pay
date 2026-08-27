@@ -408,6 +408,56 @@
         window.cloudRooms = [];
         window.unsubscribers = [];
 
+        // 커스텀 알림(토스트) 표시 함수
+        window.toastTimeout = null;
+        window.showToastAlert = function(msg) {
+            const toast = document.getElementById('toastAlert');
+            const toastMsg = document.getElementById('toastMessage');
+            if (!toast || !toastMsg) return;
+            toastMsg.innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            if (window.toastTimeout) clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 2500);
+        };
+
+        // 커스텀 모달 팝업 제어 함수
+        let modalConfirmCallback = null;
+        window.showModal = function(title, message, onConfirm) {
+            const modal = document.getElementById('confirmModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalMessage = document.getElementById('modalMessage');
+            if (!modal || !modalTitle || !modalMessage) return;
+            
+            modalTitle.innerText = title;
+            modalMessage.innerText = message;
+            modalConfirmCallback = onConfirm;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeModal = function(confirmed) {
+            const modal = document.getElementById('confirmModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            if (confirmed && typeof modalConfirmCallback === 'function') {
+                modalConfirmCallback();
+            }
+            modalConfirmCallback = null;
+        };
+
+        // 안전한 송금 고유 키 생성 함수 (파이어베이스 키 특수문자 제한 대응)
+        window.makeTransferKey = function(from, to, amount) {
+            return `${from}_${to}_${amount}`.replace(/[\.\/\[\]\$#]/g, '_');
+        };
+
         // 지출 내역을 바탕으로 송금 정산액을 계산하는 범용 함수
         window.computeTransfers = function(membersList, expensesList) {
             const gross = {};
@@ -1373,6 +1423,9 @@
         };
 
         window.toggleTransferStatus = function(uniqueKey) {
+            if (!window.state.completedTransfers) {
+                window.state.completedTransfers = {};
+            }
             if (window.state.completedTransfers[uniqueKey]) {
                 delete window.state.completedTransfers[uniqueKey];
                 showToastAlert("입금 미완료 상태로 변경되었습니다.");
@@ -1557,8 +1610,8 @@
             } else {
                 guideListEl.innerHTML = transfers.map(t => {
                     const isSelf = (t.from === t.to);
-                    const uniqueTransferKey = `${t.from}-${t.to}-${t.amount}`;
-                    const isDone = isSelf || !!window.state.completedTransfers[uniqueTransferKey];
+                    const uniqueTransferKey = window.makeTransferKey(t.from, t.to, t.amount);
+                    const isDone = isSelf || !!(window.state.completedTransfers && window.state.completedTransfers[uniqueTransferKey]);
 
                     // 오서준 -> 오서준 등 본인 결제건 처리
                     if (isSelf) {
@@ -1577,10 +1630,10 @@
 
                     return `
                         <div class="flex items-center justify-between p-2.5 rounded-xl border ${isDone ? 'bg-slate-100/90 border-slate-200 text-slate-400' : 'bg-white border-slate-200 text-slate-700 shadow-sm'} transition-all text-xs">
-                            <div class="flex items-center gap-2 min-w-0 flex-1 pr-2">
-                                <button onclick="toggleTransferStatus('${uniqueTransferKey}')" class="w-5 h-5 rounded-md flex items-center justify-center border ${isDone ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-white hover:border-slate-400'} transition-colors shrink-0">
+                            <div class="flex items-center gap-2 min-w-0 flex-1 pr-2 cursor-pointer" onclick="toggleTransferStatus('${uniqueTransferKey}')">
+                                <div class="w-5 h-5 rounded-md flex items-center justify-center border ${isDone ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-white hover:border-slate-400'} transition-colors shrink-0">
                                     <i class="fa-solid fa-check text-[10px] ${isDone ? '' : 'hidden'}"></i>
-                                </button>
+                                </div>
                                 <div class="font-medium truncate ${isDone ? 'line-through text-slate-400' : ''}">
                                     <span class="font-bold ${isDone ? 'text-slate-500' : 'text-slate-800'}">${t.from}</span>
                                     <i class="fa-solid fa-arrow-right text-[10px] mx-1 text-slate-400"></i>
@@ -1654,14 +1707,14 @@
                                             </div>
                                         `;
                                     }
-                                    const uniqueKey = `${t.from}-${t.to}-${t.amount}`;
+                                    const uniqueKey = window.makeTransferKey(t.from, t.to, t.amount);
                                     const isDone = arch.completedTransfers && !!arch.completedTransfers[uniqueKey];
                                     return `
                                         <div class="flex items-center justify-between p-2 rounded-lg border ${isDone ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-white border-slate-200 text-slate-700'} text-xs">
-                                            <div class="flex items-center gap-2 min-w-0">
-                                                <button onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')" class="w-4 h-4 rounded flex items-center justify-center border ${isDone ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-white'} transition-colors shrink-0">
+                                            <div class="flex items-center gap-2 min-w-0 cursor-pointer" onclick="toggleArchiveTransferStatus(${arch.id}, '${uniqueKey}')">
+                                                <div class="w-4 h-4 rounded flex items-center justify-center border ${isDone ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-white'} transition-colors shrink-0">
                                                     <i class="fa-solid fa-check text-[8px] ${isDone ? '' : 'hidden'}"></i>
-                                                </button>
+                                                </div>
                                                 <span class="truncate ${isDone ? 'line-through' : ''}">${t.from} ➔ ${t.to}</span>
                                             </div>
                                             <div class="flex items-center gap-2 shrink-0">
