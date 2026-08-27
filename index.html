@@ -513,6 +513,11 @@
                 document.getElementById('homeScreen').classList.add('hidden');
                 document.getElementById('homeScreen').classList.remove('flex');
                 window.render(true);
+
+                // 클라우드 동기화 재연결 함수 호출
+                if (typeof window.initRoomSync === 'function') {
+                    window.initRoomSync();
+                }
             } else {
                 document.getElementById('homeScreen').classList.remove('hidden');
                 document.getElementById('homeScreen').classList.add('flex');
@@ -653,65 +658,36 @@
             });
         }
 
-        window.renderCloudRooms = function() {
-            const listEl = document.getElementById('cloudRoomsList');
-            const modalListEl = document.getElementById('modalCloudRoomsList');
-            const badgeEl = document.getElementById('roomCountBadge');
-
-            if (badgeEl) badgeEl.innerText = `${window.cloudRooms.length}개`;
-
-            if (window.cloudRooms.length === 0) {
-                const emptyHtml = `<div class="text-center text-slate-400 py-3 text-[11px]">생성된 방이 없거나 클라우드 연결 대기 중입니다.</div>`;
-                if (listEl) listEl.innerHTML = emptyHtml;
-                if (modalListEl) modalListEl.innerHTML = emptyHtml;
-                return;
-            }
-
-            const itemsHtml = window.cloudRooms.map(r => `
-                <div onclick="selectRoom('${r.code}')" class="p-2.5 rounded-xl border border-slate-100 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 cursor-pointer transition-all flex items-center justify-between group">
-                    <div class="min-w-0 flex-1 pr-2">
-                        <div class="flex items-center gap-1.5">
-                            <span class="font-extrabold text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded text-[10px] tracking-wider uppercase">${r.code}</span>
-                            <span class="font-bold text-slate-800 text-xs truncate group-hover:text-indigo-700">${r.title}</span>
-                        </div>
-                        <p class="text-[10px] text-slate-400 mt-0.5">
-                            인원: ${r.memberCount}명 | 지출: ${r.expenseCount}건 (${r.totalSpent.toLocaleString()}원)
-                        </p>
-                    </div>
-                    <span class="text-xs text-indigo-500 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
-                        입장 <i class="fa-solid fa-chevron-right text-[10px]"></i>
-                    </span>
-                </div>
-            `).join('');
-
-            if (listEl) listEl.innerHTML = itemsHtml;
-            if (modalListEl) modalListEl.innerHTML = itemsHtml;
-        };
-
         function initRoomSync() {
             const hash = window.location.hash.replace('#', '').trim();
-            if (!hash) return;
+            if (!hash || !db) return;
 
             docRef = doc(db, 'trips', hash);
 
-            if (unsubscribeDoc) unsubscribeDoc();
+            if (unsubscribeDoc) {
+                unsubscribeDoc();
+                unsubscribeDoc = null;
+            }
             
             unsubscribeDoc = onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     window.state.tripTitle = data.tripTitle || '2026 대회';
-                    window.state.members = data.members || [...DEFAULT_MEMBERS];
+                    window.state.members = (data.members && data.members.length > 0) ? data.members : [...DEFAULT_MEMBERS];
                     window.state.expenses = data.expenses || [];
                     window.state.completedTransfers = data.completedTransfers || {};
                     window.state.archives = data.archives || [];
+
+                    // 클라우드 데이터를 가져오면 로컬 오프라인 데이터도 백업
+                    localStorage.setItem('travelPay_offlineBackup_' + hash, JSON.stringify(window.state));
                 } else {
-                    const fallbackTitle = window.pendingTripTitle || '2026 대회';
+                    const fallbackTitle = window.pendingTripTitle || window.state.tripTitle || '2026 대회';
                     window.state = {
                         tripTitle: fallbackTitle,
-                        members: [...DEFAULT_MEMBERS],
-                        expenses: [],
-                        completedTransfers: {},
-                        archives: []
+                        members: (window.state.members && window.state.members.length > 0) ? window.state.members : [...DEFAULT_MEMBERS],
+                        expenses: window.state.expenses || [],
+                        completedTransfers: window.state.completedTransfers || {},
+                        archives: window.state.archives || []
                     };
                     delete window.pendingTripTitle;
                     setDoc(docRef, window.state);
@@ -722,6 +698,8 @@
                 showToastAlert("클라우드 데이터를 불러오지 못했습니다. 파이어베이스 규칙을 확인하세요.");
             });
         }
+
+        window.initRoomSync = initRoomSync;
 
         // 실시간 클라우드 저장
         window.saveData = async function() {
@@ -808,9 +786,21 @@
             document.getElementById('receiptPreviewImg').src = '';
         };
 
-        window.openReceiptModal = function(imgSrc) {
-            if (!imgSrc) return;
-            document.getElementById('modalReceiptImg').src = imgSrc;
+        window.openReceiptById = function(expenseId) {
+            const exp = window.state.expenses.find(e => e.id === expenseId);
+            if (!exp || !exp.receiptImage) return;
+            document.getElementById('modalReceiptImg').src = exp.receiptImage;
+            const modal = document.getElementById('receiptModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.openArchiveReceiptById = function(archiveId, expenseId) {
+            const arch = window.state.archives.find(a => a.id === archiveId);
+            if (!arch || !arch.expenses) return;
+            const exp = arch.expenses.find(e => e.id === expenseId);
+            if (!exp || !exp.receiptImage) return;
+            document.getElementById('modalReceiptImg').src = exp.receiptImage;
             const modal = document.getElementById('receiptModal');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
@@ -1331,7 +1321,7 @@
                                             1인당 ${individualShare.toLocaleString()}원
                                         </span>
                                         ${e.receiptImage ? `
-                                            <button onclick="openReceiptModal('${e.receiptImage}')" class="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-colors flex items-center gap-1">
+                                            <button onclick="openReceiptById(${e.id})" class="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-colors flex items-center gap-1">
                                                 <i class="fa-solid fa-receipt text-[8px]"></i> 영수증 보기
                                             </button>
                                         ` : ''}
@@ -1447,7 +1437,7 @@
                                         <span class="truncate max-w-[200px]">${e.title} (${e.payer})</span>
                                         <div class="flex items-center gap-2 shrink-0">
                                             ${e.receiptImage ? `
-                                                <button onclick="openReceiptModal('${e.receiptImage}')" class="text-amber-600 hover:underline text-[10px]">
+                                                <button onclick="openArchiveReceiptById(${arch.id}, ${e.id})" class="text-amber-600 hover:underline text-[10px]">
                                                     [영수증]
                                                 </button>
                                             ` : ''}
