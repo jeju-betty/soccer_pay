@@ -407,6 +407,151 @@
         window.currentReceiptBase64 = '';
         window.cloudRooms = [];
 
+        // Firestore의 Map/Object 형태 구형 및 신형 데이터 구조를 완벽 호환하는 정규화 함수
+        window.normalizeStateData = function(data) {
+            if (!data || typeof data !== 'object') {
+                return {
+                    tripTitle: '2026 대회',
+                    members: [...DEFAULT_MEMBERS],
+                    expenses: [],
+                    completedTransfers: {},
+                    archives: []
+                };
+            }
+
+            const tripTitle = data.tripTitle || '2026 대회';
+
+            // 객체/맵 구조를 안전하게 배열로 변환하는 유틸리티
+            const toArray = (val) => {
+                if (!val) return [];
+                if (Array.isArray(val)) return val;
+                if (typeof val === 'object') return Object.values(val);
+                return [];
+            };
+
+            // 단일 지출 항목 정규화
+            const normalizeExpense = (exp, idx) => {
+                if (!exp || typeof exp !== 'object') return null;
+                
+                let participants = [];
+                if (exp.participants) {
+                    participants = toArray(exp.participants).map(p => {
+                        if (typeof p === 'string') return { name: p, count: 1 };
+                        if (p && typeof p === 'object') {
+                            return { name: String(p.name || ''), count: Number(p.count) || 1 };
+                        }
+                        return null;
+                    }).filter(Boolean);
+                } else {
+                    // 루트에 숫자로 지정된 참여자 객체(예: "0", "1", "2") 탐색
+                    Object.keys(exp).forEach(key => {
+                        const item = exp[key];
+                        if (item && typeof item === 'object' && item.name) {
+                            participants.push({ name: String(item.name), count: Number(item.count) || 1 });
+                        }
+                    });
+                }
+
+                return {
+                    id: exp.id || (Date.now() + idx),
+                    title: exp.title || '지출 항목',
+                    amount: Number(exp.amount) || 0,
+                    payer: exp.payer || '',
+                    participants: participants,
+                    time: exp.time || '',
+                    receiptImage: exp.receiptImage || ''
+                };
+            };
+
+            // 지출 내역 변환
+            let rawExpenses = [];
+            if (data.expenses) {
+                rawExpenses = toArray(data.expenses);
+            } else if (data.title || data.amount || data.payer) {
+                // 문서 자체가 단일 지출인 레거시 형태
+                rawExpenses = [data];
+            } else {
+                // 문서 루트에 숫자로 저장된 지출 내역 구조 탐색
+                Object.keys(data).forEach(k => {
+                    const item = data[k];
+                    if (item && typeof item === 'object' && (item.title || item.amount || item.payer)) {
+                        rawExpenses.push(item);
+                    }
+                });
+            }
+
+            const expenses = rawExpenses.map((e, i) => normalizeExpense(e, i)).filter(Boolean);
+
+            // 멤버 목록 변환
+            let members = toArray(data.members).map(m => typeof m === 'string' ? m : (m && m.name ? m.name : '')).filter(Boolean);
+            if (members.length === 0) {
+                const extracted = new Set([...DEFAULT_MEMBERS]);
+                expenses.forEach(e => {
+                    if (e.payer) extracted.add(e.payer);
+                    e.participants.forEach(p => { if (p.name) extracted.add(p.name); });
+                });
+                members = Array.from(extracted);
+            }
+
+            const completedTransfers = (data.completedTransfers && typeof data.completedTransfers === 'object') 
+                ? data.completedTransfers 
+                : {};
+
+            const rawArchives = toArray(data.archives);
+            const archives = rawArchives.map((arch, aIdx) => {
+                if (!arch || typeof arch !== 'object') return null;
+                const archExpenses = toArray(arch.expenses).map((e, i) => normalizeExpense(e, i)).filter(Boolean);
+                return {
+                    id: arch.id || (Date.now() + aIdx),
+                    title: arch.title || '보관된 정산',
+                    type: arch.type || 'intermediate',
+                    date: arch.date || '',
+                    totalSpent: Number(arch.totalSpent) || 0,
+                    expenses: archExpenses,
+                    transfers: toArray(arch.transfers),
+                    completedTransfers: (arch.completedTransfers && typeof arch.completedTransfers === 'object') ? arch.completedTransfers : {}
+                };
+            }).filter(Boolean);
+
+            return {
+                tripTitle,
+                members,
+                expenses,
+                completedTransfers,
+                archives
+            };
+        };
+
+        window.renderCloudRooms = function() {
+            const rooms = window.cloudRooms || [];
+            const countBadge = document.getElementById('roomCountBadge');
+            if (countBadge) countBadge.innerText = `${rooms.length}개`;
+
+            const renderListHTML = () => {
+                if (rooms.length === 0) {
+                    return `<div class="text-center text-slate-400 py-3 text-[11px]">저장된 공유 정산방이 없습니다.</div>`;
+                }
+                return rooms.map(r => `
+                    <div onclick="selectRoom('${r.code}')" class="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl cursor-pointer transition-all flex justify-between items-center text-xs">
+                        <div class="min-w-0 flex-1 pr-2">
+                            <div class="font-bold text-slate-800 truncate">${r.title}</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">코드: <span class="font-mono text-indigo-600 font-bold">${r.code}</span> | 인원 ${r.memberCount}명 | 지출 ${r.expenseCount}건</div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="font-extrabold text-slate-700">${r.totalSpent.toLocaleString()}원</div>
+                            <span class="text-[10px] text-indigo-600 font-bold hover:underline">입장 ➔</span>
+                        </div>
+                    </div>
+                `).join('');
+            };
+
+            const homeList = document.getElementById('cloudRoomsList');
+            if (homeList) homeList.innerHTML = renderListHTML();
+
+            const modalList = document.getElementById('modalCloudRoomsList');
+            if (modalList) modalList.innerHTML = renderListHTML();
+        };
+
         window.openRoomListModal = function() {
             const modal = document.getElementById('roomListModal');
             if (!modal) return;
@@ -428,64 +573,6 @@
             window.loadLocalBackup();
         };
 
-        // HTML 파일 자체 다운로드 지원 함수
-        window.downloadHTMLFile = function() {
-            const htmlContent = document.documentElement.outerHTML;
-            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'travel_pay.html';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showToastAlert("index.html 파일 다운로드가 시작되었습니다!");
-        };
-
-        // UI 유틸리티 (알림 및 컨펌 모달)
-        window.showToastAlert = function(msg) {
-            const toast = document.getElementById('toastAlert');
-            const toastMsg = document.getElementById('toastMessage');
-            if (!toast || !toastMsg) return;
-            toastMsg.innerText = msg;
-            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-            toast.classList.add('translate-y-0', 'opacity-100');
-            
-            if (window.toastTimeout) clearTimeout(window.toastTimeout);
-            window.toastTimeout = setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-            }, 3000);
-        };
-
-        let modalConfirmCallback = null;
-        window.showModal = function(title, message, onConfirm) {
-            const modal = document.getElementById('confirmModal');
-            const titleEl = document.getElementById('modalTitle');
-            const msgEl = document.getElementById('modalMessage');
-            if (!modal || !titleEl || !msgEl) return;
-            
-            titleEl.innerText = title;
-            msgEl.innerText = message;
-            modalConfirmCallback = onConfirm;
-            
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        };
-
-        window.closeModal = function(confirmed) {
-            const modal = document.getElementById('confirmModal');
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-            if (confirmed && typeof modalConfirmCallback === 'function') {
-                modalConfirmCallback();
-            }
-            modalConfirmCallback = null;
-        };
-
         // 로컬 오프라인 전용 데이터 백업 복구기
         window.loadLocalBackup = function() {
             const hash = window.location.hash.replace('#', '').trim();
@@ -494,19 +581,20 @@
                 const localBackup = localStorage.getItem('travelPay_offlineBackup_' + window.roomId);
                 if (localBackup) {
                     try {
-                        window.state = JSON.parse(localBackup);
+                        const parsed = JSON.parse(localBackup);
+                        window.state = window.normalizeStateData(parsed);
                     } catch(e) {
                         console.error("로컬 백업 로드 실패:", e);
                     }
                 } else {
                     const fallbackTitle = window.pendingTripTitle || '2026 대회';
-                    window.state = {
+                    window.state = window.normalizeStateData({
                         tripTitle: fallbackTitle,
                         members: [...DEFAULT_MEMBERS],
                         expenses: [],
                         completedTransfers: {},
                         archives: []
-                    };
+                    });
                     delete window.pendingTripTitle;
                 }
                 document.getElementById('roomCodeDisplay').innerText = `방코드: ${window.roomId}`;
@@ -672,23 +760,19 @@
             unsubscribeDoc = onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    window.state.tripTitle = data.tripTitle || '2026 대회';
-                    window.state.members = (data.members && data.members.length > 0) ? data.members : [...DEFAULT_MEMBERS];
-                    window.state.expenses = data.expenses || [];
-                    window.state.completedTransfers = data.completedTransfers || {};
-                    window.state.archives = data.archives || [];
+                    window.state = window.normalizeStateData(data);
 
                     // 클라우드 데이터를 가져오면 로컬 오프라인 데이터도 백업
                     localStorage.setItem('travelPay_offlineBackup_' + hash, JSON.stringify(window.state));
                 } else {
                     const fallbackTitle = window.pendingTripTitle || window.state.tripTitle || '2026 대회';
-                    window.state = {
+                    window.state = window.normalizeStateData({
                         tripTitle: fallbackTitle,
                         members: (window.state.members && window.state.members.length > 0) ? window.state.members : [...DEFAULT_MEMBERS],
                         expenses: window.state.expenses || [],
                         completedTransfers: window.state.completedTransfers || {},
                         archives: window.state.archives || []
-                    };
+                    });
                     delete window.pendingTripTitle;
                     setDoc(docRef, window.state);
                 }
@@ -976,27 +1060,29 @@
         // 정산 송금 계산 (멤버별 금액 끝자리 통일을 위해 올림 Math.ceil 처리)
         window.getCalculatedTransfers = function() {
             const gross = {}; 
-            
-            window.state.members.forEach(m1 => {
+            const members = Array.isArray(window.state.members) ? window.state.members : [];
+            const expenses = Array.isArray(window.state.expenses) ? window.state.expenses : [];
+
+            members.forEach(m1 => {
                 gross[m1] = {};
-                window.state.members.forEach(m2 => {
+                members.forEach(m2 => {
                     gross[m1][m2] = 0;
                 });
             });
 
-            window.state.expenses.forEach(exp => {
+            expenses.forEach(exp => {
                 const payer = exp.payer;
-                const participants = exp.participants;
-                const amount = exp.amount;
+                const participants = Array.isArray(exp.participants) ? exp.participants : [];
+                const amount = Number(exp.amount) || 0;
 
                 if (participants && participants.length > 0) {
-                    const totalPortions = participants.reduce((sum, p) => sum + p.count, 0);
+                    const totalPortions = participants.reduce((sum, p) => sum + (Number(p.count) || 1), 0);
                     if (totalPortions > 0) {
                         // 모든 멤버가 동일한 끝자리를 갖도록 올림(Math.ceil) 처리
                         const splitAmount = Math.ceil(amount / totalPortions);
 
                         participants.forEach(p => {
-                            const share = splitAmount * p.count;
+                            const share = splitAmount * (Number(p.count) || 1);
                             if (gross[p.name] && gross[p.name][payer] !== undefined) {
                                 gross[p.name][payer] += share;
                             }
@@ -1006,8 +1092,8 @@
             });
 
             const transfers = [];
-            window.state.members.forEach(from => {
-                window.state.members.forEach(to => {
+            members.forEach(from => {
+                members.forEach(to => {
                     const amt = gross[from][to];
                     if (amt > 0) {
                         transfers.push({
