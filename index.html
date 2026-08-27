@@ -691,7 +691,7 @@
                 <div onclick="selectRoom('${r.code}')" class="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl cursor-pointer transition-all flex justify-between items-center text-xs group">
                     <div class="min-w-0 flex-1 pr-2">
                         <div class="font-bold text-slate-800 truncate">${r.title}</div>
-                        <div class="text-[10px] text-slate-400 mt-0.5">코드: <span class="font-mono text-indigo-600 font-bold">${r.code}</span> | 인원 ${r.memberCount}명 | 지출 ${r.expenseCount}건</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5">코드: <span class="font-mono text-indigo-600 font-bold">${r.code}</span> | 인원 ${r.memberCount}명</div>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
                         <button onclick="event.stopPropagation(); deleteRoom('${r.code}')" class="text-slate-400 hover:text-red-500 p-1.5 transition-colors rounded-lg hover:bg-red-50" title="방 삭제">
