@@ -28,8 +28,13 @@
 <body class="min-h-screen pb-12 text-slate-800 selection:bg-slate-200">
 
     <!-- [홈 화면] 방 만들기 / 참여하기 (URL에 방 ID가 없을 때 표시) -->
-    <div id="homeScreen" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5">
+    <div id="homeScreen" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5 relative">
+            <!-- 닫기 버튼 (현재 접속 중인 방이 있을 경우 활성화) -->
+            <button id="closeHomeScreenBtn" onclick="closeHomeScreen()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-xl p-1.5 rounded-full hover:bg-slate-100 transition-all hidden" title="닫기">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
             <div class="space-y-2">
                 <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-800 text-3xl">
                     <i class="fa-solid fa-plane-departure"></i>
@@ -111,7 +116,7 @@
             </div>
             <div class="flex items-center gap-1.5 sm:gap-2 shrink-0 self-center flex-wrap justify-end">
                 <button onclick="openHomeScreen()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 shadow-sm">
-                    <i class="fa-solid fa-list text-[10px]"></i> <span class="hidden sm:inline">방 목록 / 전환</span>
+                    <i class="fa-solid fa-list-check text-[10px]"></i> <span class="hidden sm:inline">정산방 목록</span>
                 </button>
                 <!-- HTML 다운로드 버튼 -->
                 <button onclick="downloadHTMLFile()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 shadow-sm">
@@ -430,92 +435,61 @@
                 return;
             }
 
-            container.innerHTML = rooms.map(r => `
-                <div onclick="switchRoom('${r.code}')" class="flex items-center justify-between p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 cursor-pointer transition-all text-xs group">
-                    <div class="min-w-0 flex-1 pr-2">
-                        <div class="flex items-center gap-1.5">
-                            <span class="font-extrabold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0">${r.code}</span>
-                            <span class="font-bold text-slate-800 truncate">${r.title}</span>
+            container.innerHTML = rooms.map(r => {
+                const isCurrent = (r.code === window.roomId);
+                return `
+                <div onclick="switchRoom('${r.code}')" class="flex items-center justify-between p-2.5 rounded-xl ${isCurrent ? 'bg-indigo-50 border-2 border-indigo-500 shadow-sm' : 'bg-slate-50 hover:bg-slate-100 border border-slate-200/80'} cursor-pointer transition-all text-xs group">
+                    <div class="min-w-0 flex-1 pr-2 text-left">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="font-extrabold ${isCurrent ? 'text-white bg-indigo-600' : 'text-indigo-600 bg-indigo-50'} px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0">${r.code}</span>
+                            <span class="font-bold text-slate-800 truncate max-w-[130px]">${r.title}</span>
+                            ${isCurrent ? '<span class="text-[9px] bg-emerald-500 text-white font-extrabold px-1.5 py-0.2 rounded-full shrink-0">현재</span>' : ''}
                         </div>
-                        <div class="text-[9px] text-slate-400 mt-0.5">${r.lastAccessed}</div>
+                        <div class="text-[9px] text-slate-400 mt-0.5"><i class="fa-regular fa-clock"></i> ${r.lastAccessed}</div>
                     </div>
-                    <button onclick="removeRecentRoom('${r.code}', event)" class="text-slate-300 hover:text-rose-500 p-1 rounded-lg transition-colors group-hover:text-slate-400">
+                    <button onclick="removeRecentRoom('${r.code}', event)" class="text-slate-300 hover:text-rose-500 p-1.5 rounded-lg transition-colors group-hover:text-slate-400" title="목록에서 삭제">
                         <i class="fa-solid fa-xmark text-xs"></i>
                     </button>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         };
 
         window.openHomeScreen = function() {
             window.renderRecentRooms();
             const home = document.getElementById('homeScreen');
+            const closeBtn = document.getElementById('closeHomeScreenBtn');
+            
+            if (closeBtn) {
+                if (window.roomId) {
+                    closeBtn.classList.remove('hidden');
+                } else {
+                    closeBtn.classList.add('hidden');
+                }
+            }
+
             if (home) {
                 home.classList.remove('hidden');
                 home.classList.add('flex');
             }
         };
 
+        window.closeHomeScreen = function() {
+            if (!window.roomId) {
+                showToastAlert("참여 중인 정산방이 없습니다. 방을 선택하거나 개설해 주세요.");
+                return;
+            }
+            const home = document.getElementById('homeScreen');
+            if (home) {
+                home.classList.add('hidden');
+                home.classList.remove('flex');
+            }
+        };
+
         window.switchRoom = function(code) {
             window.location.hash = code;
             window.loadLocalBackup();
-        };
-
-        // HTML 파일 자체 다운로드 지원 함수
-        window.downloadHTMLFile = function() {
-            const htmlContent = document.documentElement.outerHTML;
-            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'travel_pay.html';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showToastAlert("index.html 파일 다운로드가 시작되었습니다!");
-        };
-
-        // UI 유틸리티 (알림 및 컨펌 모달)
-        window.showToastAlert = function(msg) {
-            const toast = document.getElementById('toastAlert');
-            const toastMsg = document.getElementById('toastMessage');
-            if (!toast || !toastMsg) return;
-            toastMsg.innerText = msg;
-            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-            toast.classList.add('translate-y-0', 'opacity-100');
-            
-            if (window.toastTimeout) clearTimeout(window.toastTimeout);
-            window.toastTimeout = setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-            }, 3000);
-        };
-
-        let modalConfirmCallback = null;
-        window.showModal = function(title, message, onConfirm) {
-            const modal = document.getElementById('confirmModal');
-            const titleEl = document.getElementById('modalTitle');
-            const msgEl = document.getElementById('modalMessage');
-            if (!modal || !titleEl || !msgEl) return;
-            
-            titleEl.innerText = title;
-            msgEl.innerText = message;
-            modalConfirmCallback = onConfirm;
-            
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        };
-
-        window.closeModal = function(confirmed) {
-            const modal = document.getElementById('confirmModal');
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-            if (confirmed && typeof modalConfirmCallback === 'function') {
-                modalConfirmCallback();
-            }
-            modalConfirmCallback = null;
+            window.closeHomeScreen();
         };
 
         // 로컬 오프라인 전용 데이터 백업 복구기
