@@ -81,7 +81,12 @@
                     <label class="text-[11px] font-bold text-slate-600 flex items-center gap-1">
                         <i class="fa-solid fa-clock-rotate-left text-indigo-500"></i> 내 실시간 정산방 목록
                     </label>
-                    <span id="recentRoomCount" class="text-[10px] text-slate-400">0개</span>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="fetchRoomsFromCloud()" class="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition-colors" title="파이어베이스 클라우드에서 전체 생성된 방 불러오기">
+                            <i class="fa-solid fa-cloud-arrow-down"></i> 클라우드 불러오기
+                        </button>
+                        <span id="recentRoomCount" class="text-[10px] text-slate-400">0개</span>
+                    </div>
                 </div>
                 <div id="recentRoomsContainer" class="space-y-1.5 max-h-36 overflow-y-auto pr-1 smooth-scroll">
                     <!-- 최근 접속 정산방 목록 동적 렌더링 -->
@@ -593,7 +598,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'travel-pay-app';
         const fbConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
@@ -633,6 +638,8 @@
                         document.getElementById('syncStatusDot').className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm animate-pulse";
                         document.getElementById('syncStatusText').innerText = "실시간 클라우드 공유 중";
                         initRoomSync();
+                        // 접속 시 클라우드에 기존 생성된 전체 방 목록 자동 복구
+                        window.fetchRoomsFromCloud();
                     }
                 });
             } catch (e) {
@@ -640,6 +647,55 @@
                 showToastAlert("클라우드 접속 실패. 로컬 모드로 작동합니다.");
             }
         }
+
+        // 파이어베이스 클라우드 데이터베이스에서 전체 정산방 목록을 검색하여 복구
+        window.fetchRoomsFromCloud = async function() {
+            if (!db || !auth || !auth.currentUser) {
+                showToastAlert("클라우드 연결을 확인 중입니다. 잠시 후 다시 눌러주세요.");
+                return;
+            }
+
+            try {
+                const tripsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'trips');
+                const querySnapshot = await getDocs(tripsCollectionRef);
+                
+                let addedCount = 0;
+                const rooms = window.getRecentRooms();
+
+                querySnapshot.forEach((docSnap) => {
+                    const code = docSnap.id;
+                    const data = docSnap.data();
+                    
+                    if (code && code.length === 6) {
+                        const title = data.tripTitle || '2026 대회';
+                        const existingIdx = rooms.findIndex(r => r.code === code);
+                        
+                        if (existingIdx === -1) {
+                            rooms.push({
+                                code: code,
+                                title: title,
+                                lastAccessed: '클라우드 동기화됨'
+                            });
+                            addedCount++;
+                        } else {
+                            rooms[existingIdx].title = title;
+                        }
+                    }
+                });
+
+                localStorage.setItem('travelPay_recentRoomsList', JSON.stringify(rooms));
+                window.renderRecentRooms();
+
+                if (addedCount > 0) {
+                    showToastAlert(`클라우드에서 ${addedCount}개의 정산방을 불러왔습니다!`);
+                } else {
+                    showToastAlert("클라우드의 방 목록이 모두 동기화되어 있습니다.");
+                }
+            } catch (e) {
+                console.error("클라우드 방 목록 복구 실패:", e);
+                showToastAlert("클라우드 방 목록을 불러오는 중 오류가 발생했습니다.");
+            }
+        };
 
         function initRoomSync() {
             const hash = window.location.hash.replace('#', '').trim();
