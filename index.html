@@ -71,16 +71,32 @@
                 </div>
             </div>
 
-            <!-- 클라우드 /trips 방 목록 안내 영역 -->
-            <div id="cloudRoomsSection" class="pt-2 border-t border-slate-100 text-left">
-                <div class="flex justify-between items-center mb-2">
-                    <label class="text-xs font-bold text-slate-600 flex items-center gap-1">
-                        <i class="fa-solid fa-cloud text-indigo-500"></i> 저장된 공유 정산방 목록
+            <!-- 관리자 전용 정산방 목록 조회 영역 -->
+            <div id="cloudRoomsSection" class="pt-3 border-t border-slate-100 text-left space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        <i class="fa-solid fa-lock text-amber-500"></i> 관리자 전용 정산방 목록
                     </label>
-                    <span id="roomCountBadge" class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">0개</span>
+                    <button id="adminToggleBtn" onclick="toggleAdminAuthInput()" class="text-[11px] text-indigo-600 font-bold hover:underline">
+                        관리자 인증 🔓
+                    </button>
                 </div>
-                <div id="cloudRoomsList" class="space-y-1.5 max-h-40 overflow-y-auto smooth-scroll text-xs">
-                    <div class="text-center text-slate-400 py-3 text-[11px]">방 목록을 불러오는 중...</div>
+
+                <!-- 관리자 암호 입력 상자 (기본 암호: 1234) -->
+                <div id="adminAuthBox" class="hidden flex gap-2">
+                    <input type="password" id="adminPasswordInput" placeholder="관리자 암호 (기본: 1234)" class="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-indigo-500">
+                    <button onclick="verifyAdminPassword()" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold shrink-0">확인</button>
+                </div>
+
+                <!-- 인증 성공 시 열리는 목록 -->
+                <div id="adminRoomListContainer" class="hidden">
+                    <div class="flex justify-between items-center mb-1.5">
+                        <span class="text-[10px] text-slate-400">전체 생성된 클라우드 방 목록입니다.</span>
+                        <span id="roomCountBadge" class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold">0개</span>
+                    </div>
+                    <div id="cloudRoomsList" class="space-y-1.5 max-h-36 overflow-y-auto smooth-scroll text-xs">
+                        <div class="text-center text-slate-400 py-3 text-[11px]">방 목록을 불러오는 중...</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -111,10 +127,6 @@
                 </div>
             </div>
             <div class="flex items-center gap-1.5 sm:gap-2 shrink-0 self-center flex-wrap justify-end">
-                <!-- 파이어베이스 전체 방 목록 모달 열기 버튼 -->
-                <button onclick="openRoomListModal()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 shadow-sm">
-                    <i class="fa-solid fa-list"></i> <span class="hidden xs:inline">방 목록</span>
-                </button>
                 <!-- HTML 다운로드 버튼 -->
                 <button onclick="downloadHTMLFile()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 shadow-sm">
                     <i class="fa-solid fa-download"></i> <span class="hidden sm:inline">HTML 다운로드</span>
@@ -347,28 +359,6 @@
         </div>
     </div>
 
-    <!-- 파이어베이스 방 목록 조회 모달 -->
-    <div id="roomListModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
-                    <i class="fa-solid fa-cloud text-indigo-500"></i> 클라우드 정산방 목록 (/trips)
-                </h3>
-                <button onclick="closeRoomListModal()" class="text-slate-400 hover:text-slate-600 text-lg p-1">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            
-            <p class="text-xs text-slate-500">
-                파이어베이스에 등록된 전체 정산방 목록입니다. 원하시는 방을 선택해 바로 이동할 수 있습니다.
-            </p>
-
-            <div id="modalCloudRoomsList" class="space-y-2 overflow-y-auto smooth-scroll flex-1 pr-1 max-h-[350px]">
-                <div class="text-center text-slate-400 py-6 text-xs">방 목록을 불러오는 중...</div>
-            </div>
-        </div>
-    </div>
-
     <!-- 커스텀 알림/컨펌 모달 -->
     <div id="confirmModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl p-5 max-w-sm w-full shadow-xl">
@@ -407,6 +397,31 @@
         window.currentReceiptBase64 = '';
         window.cloudRooms = [];
         window.unsubscribers = [];
+        window.isAdminAuthenticated = false;
+
+        window.toggleAdminAuthInput = function() {
+            const authBox = document.getElementById('adminAuthBox');
+            if (authBox) {
+                authBox.classList.toggle('hidden');
+            }
+        };
+
+        window.verifyAdminPassword = function() {
+            const pwdInput = document.getElementById('adminPasswordInput');
+            const pwd = pwdInput ? pwdInput.value.trim() : '';
+            // 관리자 기본 비밀번호: 1234 (필요시 변경 가능)
+            if (pwd === '1234') {
+                window.isAdminAuthenticated = true;
+                showToastAlert('관리자 인증이 완료되었습니다.');
+                document.getElementById('adminAuthBox').classList.add('hidden');
+                document.getElementById('adminRoomListContainer').classList.remove('hidden');
+                document.getElementById('adminToggleBtn').innerText = '관리자 인증 완료 ✅';
+                document.getElementById('adminToggleBtn').onclick = null;
+                if (window.renderCloudRooms) window.renderCloudRooms();
+            } else {
+                showToastAlert('비밀번호가 올바르지 않습니다.');
+            }
+        };
 
         // 커스텀 알림(토스트) 표시 함수
         window.toastTimeout = null;
@@ -664,49 +679,32 @@
             const countBadge = document.getElementById('roomCountBadge');
             if (countBadge) countBadge.innerText = `${rooms.length}개`;
 
-            const renderListHTML = () => {
-                if (rooms.length === 0) {
-                    return `<div class="text-center text-slate-400 py-3 text-[11px]">저장된 공유 정산방이 없습니다.</div>`;
-                }
-                return rooms.map(r => `
-                    <div onclick="selectRoom('${r.code}')" class="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl cursor-pointer transition-all flex justify-between items-center text-xs">
-                        <div class="min-w-0 flex-1 pr-2">
-                            <div class="font-bold text-slate-800 truncate">${r.title}</div>
-                            <div class="text-[10px] text-slate-400 mt-0.5">코드: <span class="font-mono text-indigo-600 font-bold">${r.code}</span> | 인원 ${r.memberCount}명 | 지출 ${r.expenseCount}건</div>
-                        </div>
-                        <div class="text-right shrink-0">
-                            <div class="font-extrabold text-slate-700">${r.totalSpent.toLocaleString()}원</div>
-                            <span class="text-[10px] text-indigo-600 font-bold hover:underline">입장 ➔</span>
-                        </div>
-                    </div>
-                `).join('');
-            };
-
             const homeList = document.getElementById('cloudRoomsList');
-            if (homeList) homeList.innerHTML = renderListHTML();
+            if (!homeList) return;
 
-            const modalList = document.getElementById('modalCloudRoomsList');
-            if (modalList) modalList.innerHTML = renderListHTML();
-        };
+            if (rooms.length === 0) {
+                homeList.innerHTML = `<div class="text-center text-slate-400 py-3 text-[11px]">저장된 공유 정산방이 없습니다.</div>`;
+                return;
+            }
 
-        window.openRoomListModal = function() {
-            const modal = document.getElementById('roomListModal');
-            if (!modal) return;
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            if (window.renderCloudRooms) window.renderCloudRooms();
-        };
-
-        window.closeRoomListModal = function() {
-            const modal = document.getElementById('roomListModal');
-            if (!modal) return;
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
+            homeList.innerHTML = rooms.map(r => `
+                <div onclick="selectRoom('${r.code}')" class="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl cursor-pointer transition-all flex justify-between items-center text-xs group">
+                    <div class="min-w-0 flex-1 pr-2">
+                        <div class="font-bold text-slate-800 truncate">${r.title}</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5">코드: <span class="font-mono text-indigo-600 font-bold">${r.code}</span> | 인원 ${r.memberCount}명 | 지출 ${r.expenseCount}건</div>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button onclick="event.stopPropagation(); deleteRoom('${r.code}')" class="text-slate-400 hover:text-red-500 p-1.5 transition-colors rounded-lg hover:bg-red-50" title="방 삭제">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                        <span class="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-1 rounded-md group-hover:bg-indigo-600 group-hover:text-white transition-all">입장 ➔</span>
+                    </div>
+                </div>
+            `).join('');
         };
 
         window.selectRoom = function(code) {
             window.location.hash = code;
-            window.closeRoomListModal();
             window.loadLocalBackup();
         };
 
@@ -810,7 +808,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const fbConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyAyQh3vCgipwKAZdPtVZRmwq3t9qapy8H0",
@@ -945,6 +943,46 @@
         }
 
         window.initRoomSync = initRoomSync;
+
+        // 파이어베이스 클라우드 정산방 삭제 함수
+        window.deleteRoom = function(code) {
+            showModal(
+                '정산방 삭제',
+                `방 코드 [${code}] 정산방을 정말로 삭제하시겠습니까? 클라우드 및 저장된 모든 데이터가 삭제됩니다.`,
+                async () => {
+                    try {
+                        if (db) {
+                            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                            const rootDocRef = doc(db, 'trips', code);
+                            const artifactDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', code);
+                            
+                            await Promise.allSettled([
+                                deleteDoc(rootDocRef),
+                                deleteDoc(artifactDocRef)
+                            ]);
+                        }
+
+                        // 로컬 오프라인 백업 삭제
+                        localStorage.removeItem('travelPay_offlineBackup_' + code);
+                        
+                        // 화면 목록 실시간 갱신
+                        window.cloudRooms = window.cloudRooms.filter(r => r.code !== code);
+                        if (window.renderCloudRooms) window.renderCloudRooms();
+
+                        showToastAlert(`[${code}] 정산방이 성공적으로 삭제되었습니다.`);
+
+                        // 현재 입장한 방을 삭제한 경우 홈 화면으로 이동
+                        if (window.roomId === code) {
+                            window.location.hash = '';
+                            window.loadLocalBackup();
+                        }
+                    } catch (e) {
+                        console.error("방 삭제 에러:", e);
+                        showToastAlert("방 삭제 처리 중 오류가 발생했습니다.");
+                    }
+                }
+            );
+        };
 
         window.saveData = async function() {
             window.state.members.sort((a, b) => a.localeCompare(b, 'ko'));
